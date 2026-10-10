@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>El método sustractivo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: third page of the series — same lab bench (stage left, notebook right, stepper, transport). Stage colours: blue = base stages / control, orange = inserted stage / task, aqua = second inserted stage (validated all-pairs). */
+:root{
+  --bg:#EEF1F4; --surface:#FFFFFF; --surface-2:#F6F8FA; --ink:#16202A; --muted:#566473; --line:#D3DAE2;
+  --accent:#A86400; --accent-soft:#F6E7CF; --grid:#E3E8ED; --brain:#E9ECF0;
+  --c1:#2a78d6; --c2:#eb6834; --c3:#1baf7a; --ok:#1E7B4A; --bad:#B3261E;
+  --f-display:"Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D1318; --surface:#141C23; --surface-2:#19232C; --ink:#E3E9EF; --muted:#94A2B0; --line:#2A3641;
+  --accent:#E5A43C; --accent-soft:#3A2C14; --grid:#222D37; --brain:#232D37;
+  --c1:#3987e5; --c2:#d95926; --c3:#199e70; --ok:#5CC08A; --bad:#F2867E; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D1318; --surface:#141C23; --surface-2:#19232C; --ink:#E3E9EF; --muted:#94A2B0; --line:#2A3641;
+  --accent:#E5A43C; --accent-soft:#3A2C14; --grid:#222D37; --brain:#232D37;
+  --c1:#3987e5; --c2:#d95926; --c3:#199e70; --ok:#5CC08A; --bad:#F2867E; color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+[hidden]{display:none!important}
+html:not([data-lang="en"]) .en{display:none!important}
+html[data-lang="en"] .es{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;padding-inline:clamp(16px,3vw,36px);padding-block:20px 0}
+.app{max-width:1360px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.12}
+p{margin:0}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.top{display:flex;flex-direction:column;gap:14px}
+.brand{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:8px 20px}
+.kicker{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-size:clamp(28px,4vw,44px);font-weight:800;letter-spacing:-.01em}
+h1 em{font-style:normal;color:var(--accent)}
+.stepper-wrap{overflow-x:auto;margin-inline:-4px;padding:4px}
+.stepper{list-style:none;margin:0;padding:0;display:flex;gap:6px;min-width:max-content}
+.stepper button{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px 6px 6px;cursor:pointer;font-size:14px;color:var(--muted)}
+.stepper button .n{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--surface-2);font-family:var(--f-mono);font-size:12px;font-weight:600;color:var(--ink)}
+.stepper button[aria-current="step"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.stepper button[aria-current="step"] .n{background:var(--accent);color:#fff}
+.stepper button.done .n{background:var(--accent-soft);color:var(--accent)}
+.stepper button:hover{border-color:var(--muted)}
+#lang{flex:none}#lang button{padding:6px 12px;font-size:13px}
+.phase{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr);gap:18px;align-items:start}
+.viz{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.viz canvas{display:block;width:100%;max-width:100%;touch-action:manipulation}
+.viz .cap{font-size:13px;color:var(--muted);padding-inline:4px}
+.panel{display:flex;flex-direction:column;gap:16px;min-width:0}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:600}
+.panel h2{font-size:clamp(22px,2.4vw,30px);font-weight:700;margin-top:4px}
+.lead{max-width:62ch}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.box h3{font-size:14px;font-family:var(--f-mono);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ctl{display:flex;flex-direction:column;gap:4px}
+.ctl .row{display:flex;justify-content:space-between;gap:10px;align-items:baseline;font-size:14px}
+.ctl output,.mono{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums}
+.ctl .hint{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}
+input[type=range]{width:100%;accent-color:var(--accent);margin:2px 0}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:var(--surface);padding:7px 12px;font-size:14px;cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.seg.small button{padding:5px 9px;font-size:13px}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+.chk input{accent-color:var(--accent);width:16px;height:16px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:14px}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.btn:disabled{opacity:.5;cursor:default}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.observe{background:var(--accent-soft);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.observe h3{font-size:13px;font-family:var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.observe ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:15px}
+details.think{border:1px dashed var(--muted);border-radius:12px;padding:12px 16px}
+details.think summary{cursor:pointer;font-weight:700;list-style:none;display:flex;gap:10px;align-items:baseline}
+details.think summary::before{content:"?";font-family:var(--f-mono);display:grid;place-items:center;flex:none;width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--bg);font-size:12px}
+details.think summary::-webkit-details-marker{display:none}
+details.think p{margin-top:10px}
+.readouts{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.ro{background:var(--surface-2);border-radius:8px;padding:8px 12px}
+.ro .k{font-size:12px;color:var(--muted)}
+.ro .v{font-family:var(--f-mono);font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}
+.note{font-size:13px;color:var(--muted);max-width:62ch}
+.formula{font-family:var(--f-mono);font-size:14px;background:var(--surface-2);border-radius:8px;padding:10px 12px;line-height:1.7}
+.formula b{color:var(--accent)}
+
+/* reaction-time stage */
+.rtwrap{display:flex;flex-direction:column;gap:10px}
+.rtinstr{font-size:15px;background:var(--surface-2);border-radius:8px;padding:10px 12px;min-height:3.2em}
+.rtstage{position:relative;height:230px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);display:grid;place-items:center;overflow:hidden;user-select:none}
+.rtstage .fix{font-family:var(--f-mono);font-size:40px;color:var(--muted)}
+.rtstage .stim{width:110px;height:110px}
+.rtstage .stim.circle{border-radius:50%;background:#D23B2F}
+.rtstage .stim.square{border-radius:6px;background:#2A63C7}
+.rtstage .msg{position:absolute;bottom:12px;left:0;right:0;text-align:center;font-family:var(--f-mono);font-size:15px;font-weight:600}
+.rtstage .count{position:absolute;top:10px;right:12px;font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.rtkeys{display:flex;gap:8px;flex-wrap:wrap}
+.rtkeys .btn{flex:1 1 120px;padding:14px;font-weight:700;font-size:15px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.stimkey{display:inline-block;width:14px;height:14px;vertical-align:-2px;margin-inline:2px}
+.stimkey.c{border-radius:50%;background:#D23B2F}.stimkey.s{border-radius:2px;background:#2A63C7}
+
+.transport{position:sticky;bottom:0;z-index:5;margin-inline:calc(-1 * clamp(16px,3vw,36px));padding:10px clamp(16px,3vw,36px) calc(10px + env(safe-area-inset-bottom,0px));background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-top:1px solid var(--line)}
+.transport .in{max-width:1360px;margin:0 auto;display:flex;align-items:center;gap:10px;justify-content:space-between}
+.prog{font-family:var(--f-mono);font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn.nav{font-weight:700;padding:10px 18px}
+.btn.next{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+footer.cred{font-size:12.5px;color:var(--muted);padding-block:6px 14px}
+@media (max-width:980px){.phase{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:640px){#p3{aspect-ratio:3/5!important}#p4{aspect-ratio:3/4!important}}
+details.deep{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:12px 16px}
+details.deep summary{cursor:pointer;font-weight:700;list-style:none;display:flex;gap:10px;align-items:center}
+details.deep summary::-webkit-details-marker{display:none}
+details.deep summary::before{content:'+';font-family:var(--f-mono);display:grid;place-items:center;flex:none;width:22px;height:22px;border-radius:6px;background:var(--accent-soft);color:var(--accent);font-size:15px}
+details.deep[open] summary::before{content:'−'}
+details.deep .deepbody{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+details.deep canvas{display:block;width:100%;max-width:100%}
+.tag{font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-left:auto}
+@media (max-width:560px){.btn.nav{padding:10px 12px}.prog{display:none}}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div>
+        <div class="kicker"><span class="es">Neurociencia Cognitiva · Diseño y análisis</span><span class="en">Cognitive Neuroscience · Design and analysis</span></div>
+        <h1><span class="es">El método <em>sustractivo</em></span><span class="en">The <em>subtractive</em> method</span></h1>
+      </div>
+      <div class="seg" id="lang" role="group" aria-label="Idioma / Language"><button data-v="es" aria-pressed="true" lang="es">Español</button><button data-v="en" aria-pressed="false" lang="en">English</button></div>
+    </div>
+    <nav class="stepper-wrap" id="stepnav"><ol class="stepper" id="stepper"></ol></nav>
+  </header>
+
+  <!-- ============ FASE 1: Donders ============ -->
+  <section class="phase" id="fase1" data-es="Donders: restar tiempos" data-en="Donders: subtracting times">
+    <div class="viz">
+      <div class="rtwrap">
+        <div class="rtinstr" id="rt-instr"></div>
+        <div class="rtstage" id="rt-stage" aria-live="polite"><div class="count" id="rt-count"></div><div id="rt-show"><span class="fix">+</span></div><div class="msg" id="rt-msg"></div></div>
+        <div class="rtkeys" id="rt-keys"></div>
+      </div>
+      <canvas id="p1" style="aspect-ratio:16/7" data-aria-es="Tiempos de reacción de las tres tareas y su descomposición en etapas" data-aria-en="Reaction times of the three tasks and their decomposition into stages"></canvas>
+      <div class="legend"><span><i style="background:var(--c1)"></i><span class="es">detección + respuesta motora</span><span class="en">detection + motor response</span></span><span><i style="background:var(--c2)"></i><span class="es">discriminación (c − a)</span><span class="en">discrimination (c − a)</span></span><span><i style="background:var(--c3)"></i><span class="es">selección de respuesta (b − c)</span><span class="en">response selection (b − c)</span></span></div>
+      <div class="cap"><span class="es">Cada punto es uno de tus ensayos correctos; la barra llega a la mediana. Los estímulos son los mismos en las tres tareas: solo cambia lo que tienes que hacer con ellos.</span><span class="en">Each dot is one of your correct trials; the bar reaches the median. The stimuli are the same in all three tasks: only what you have to do with them changes.</span></div>
+    </div>
+    <div class="panel">
+      <div><div class="eyebrow"><span class="es">Fase 1 · La idea original</span><span class="en">Phase 1 · The original idea</span></div>
+        <h2><span class="es">Donders (1868): medir un proceso mental restando tiempos</span><span class="en">Donders (1868): measuring a mental process by subtracting times</span></h2></div>
+      <p class="lead"><span class="es">El fisiólogo neerlandés F. C. Donders comparó tareas que se diferencian en <b>una sola etapa de procesamiento</b>. Si la tarea c es como la a más una etapa de discriminación, la diferencia de tiempos <b>c − a</b> estima cuánto dura discriminar. Hazlo tú: completa un bloque de cada tarea.</span><span class="en">The Dutch physiologist F. C. Donders compared tasks that differ in <b>a single processing stage</b>. If task c is like task a plus a discrimination stage, the time difference <b>c − a</b> estimates how long discrimination takes. Try it yourself: complete one block of each task.</span></p>
+      <div class="box">
+        <h3><span class="es">Experimento</span><span class="en">Experiment</span></h3>
+        <div class="ctl"><div class="row"><span class="es">Tarea</span><span class="en">Task</span></div>
+          <div class="seg" id="rt-task"><button data-v="a" aria-pressed="true"><span class="es">a · simple</span><span class="en">a · simple</span></button><button data-v="c" aria-pressed="false"><span class="es">c · go/no-go</span><span class="en">c · go/no-go</span></button><button data-v="b" aria-pressed="false"><span class="es">b · elección</span><span class="en">b · choice</span></button></div></div>
+        <div class="btns"><button class="btn primary" id="rt-start"><span class="es">Empezar bloque (10 ensayos)</span><span class="en">Start block (10 trials)</span></button><button class="btn" id="rt-example"><span class="es">Usar datos de ejemplo</span><span class="en">Use example data</span></button><button class="btn" id="rt-clear"><span class="es">Borrar datos</span><span class="en">Clear data</span></button></div>
+        <div class="readouts">
+          <div class="ro"><div class="k"><span class="es">Discriminación (c − a)</span><span class="en">Discrimination (c − a)</span></div><div class="v" id="rt-d1">–</div></div>
+          <div class="ro"><div class="k"><span class="es">Selección de respuesta (b − c)</span><span class="en">Response selection (b − c)</span></div><div class="v" id="rt-d2">–</div></div>
+        </div>
+        <p class="note" id="rt-note"></p>
+      </div>
+      <div class="formula"><span class="es">a = detección + respuesta<br>c = detección + <b>discriminación</b> + respuesta<br>b = detección + discriminación + <b>selección</b> + respuesta</span><span class="en">a = detection + response<br>c = detection + <b>discrimination</b> + response<br>b = detection + discrimination + <b>selection</b> + response</span></div>
+      <div class="observe"><h3><span class="es">Fíjate en</span><span class="en">Notice</span></h3><ul>
+        <li><span class="es">La tarea a no exige saber qué estímulo apareció; la c exige identificarlo; la b, además, elegir entre dos respuestas.</span><span class="en">Task a does not require knowing which stimulus appeared; task c requires identifying it; task b also requires choosing between two responses.</span></li>
+        <li><span class="es">La resta nunca se hace con una sola tarea: siempre necesitas una tarea de control que comparta todo menos el proceso que te interesa.</span><span class="en">The subtraction is never done with a single task: you always need a control task that shares everything except the process of interest.</span></li>
+      </ul></div>
+      <details class="think"><summary><span class="es">¿Por qué usamos la mediana y no la media?</span><span class="en">Why do we use the median and not the mean?</span></summary>
+        <p><span class="es">Los tiempos de reacción tienen una distribución asimétrica, con una cola de respuestas lentas (un despiste, un parpadeo). Unos pocos valores muy lentos arrastran la media; la mediana es más robusta. Con pocos ensayos, como aquí, la diferencia puede ser notable.</span><span class="en">Reaction times have a skewed distribution, with a tail of slow responses (a lapse, a blink). A few very slow values drag the mean; the median is more robust. With few trials, as here, the difference can be noticeable.</span></p></details>
+      <p class="note"><span class="es">Los tiempos medidos en un navegador tienen un error de algunos milisegundos (pantalla, teclado). Basta para ver el efecto, no para un experimento real.</span><span class="en">Times measured in a browser have an error of a few milliseconds (screen, keyboard). Enough to see the effect, not for a real experiment.</span></p>
+    </div>
+  </section>
+
+  <!-- ============ FASE 2: inserción pura ============ -->
+  <section class="phase" id="fase2" data-es="El supuesto de inserción pura" data-en="The pure-insertion assumption" hidden>
+    <div class="viz">
+      <canvas id="p2" style="aspect-ratio:16/6.4" data-aria-es="Duración de las etapas en cada tarea y estimación por resta" data-aria-en="Stage durations in each task and the subtraction estimate"></canvas>
+      <div class="cap"><span class="es">Duración “real” de cada etapa (simulada) en las tareas a y c, y lo que estima la resta c − a. La línea discontinua marca la duración real de la discriminación.</span><span class="en">The “true” duration of each stage (simulated) in tasks a and c, and what the subtraction c − a estimates. The dashed line marks the true discrimination time.</span></div>
+    </div>
+    <div class="panel">
+      <div><div class="eyebrow"><span class="es">Fase 2 · El supuesto clave</span><span class="en">Phase 2 · The key assumption</span></div>
+        <h2><span class="es">La resta solo funciona si añadir una etapa no cambia las demás</span><span class="en">Subtraction only works if adding a stage leaves the others unchanged</span></h2></div>
+      <p class="lead"><span class="es">El método sustractivo supone la <b>inserción pura</b>: al añadir una etapa, las demás siguen exactamente igual. Si no es así (por ejemplo, porque en la tarea c también preparas la respuesta de otra manera), la resta mezcla el proceso nuevo con los cambios en los otros, y la estimación se sesga.</span><span class="en">The subtractive method assumes <b>pure insertion</b>: when a stage is added, all the others stay exactly the same. If that is not the case (for example, because in task c you also prepare the response differently), the subtraction mixes the new process with the changes in the others, and the estimate is biased.</span></p>
+      <div class="box">
+        <h3><span class="es">Controles</span><span class="en">Controls</span></h3>
+        <div class="ctl"><div class="row"><label for="p2-i"><span class="es">Al insertar la discriminación, la respuesta motora cambia en…</span><span class="en">When discrimination is inserted, the motor response changes by…</span></label><output id="p2-i-v"></output></div><input type="range" id="p2-i" min="-40" max="60" value="0">
+          <div class="hint"><span><span class="es">se acorta</span><span class="en">gets shorter</span></span><span><span class="es">0 = inserción pura</span><span class="en">0 = pure insertion</span></span><span><span class="es">se alarga</span><span class="en">gets longer</span></span></div></div>
+        <div class="readouts">
+          <div class="ro"><div class="k"><span class="es">Discriminación real</span><span class="en">True discrimination</span></div><div class="v">60 ms</div></div>
+          <div class="ro"><div class="k"><span class="es">Estimada por c − a</span><span class="en">Estimated by c − a</span></div><div class="v" id="p2-est">–</div></div>
+        </div>
+      </div>
+      <div class="observe"><h3><span class="es">Fíjate en</span><span class="en">Notice</span></h3><ul>
+        <li><span class="es">Con 0 ms, c − a recupera exactamente la duración de la discriminación. Con cualquier otro valor, el error es igual al cambio en la otra etapa, y el método no puede detectarlo por sí solo.</span><span class="en">At 0 ms, c − a recovers the discrimination time exactly. With any other value, the error equals the change in the other stage, and the method cannot detect it on its own.</span></li>
+        <li><span class="es">Insertar una etapa puede cambiar cómo se hacen las demás (por ejemplo, la respuesta se prepara de otra manera cuando hay que decidir). Por eso conviene pensar bien si la tarea de control es comparable.</span><span class="en">Inserting a stage can change how the others are carried out (for example, the response is prepared differently when a decision is required). That is why it is worth thinking carefully about whether the control task is comparable.</span></li>
+      </ul></div>
+      <details class="deep" id="p2-deep"><summary><span class="es">Para profundizar: el método de factores aditivos (Sternberg, 1969)</span><span class="en">Going further: the additive-factors method (Sternberg, 1969)</span><span class="tag"><span class="es">opcional</span><span class="en">optional</span></span></summary>
+        <div class="deepbody">
+          <p><span class="es">Sternberg propuso una alternativa que no necesita añadir ni quitar etapas. En lugar de eso, se manipulan <b>dos factores</b> dentro de la misma tarea, por ejemplo la calidad del estímulo (nítido o degradado) y el número de alternativas de respuesta (2 o 4).</span><span class="en">Sternberg proposed an alternative that does not require adding or removing stages. Instead, <b>two factors</b> are manipulated within the same task, for example stimulus quality (clear or degraded) and the number of response alternatives (2 or 4).</span></p>
+          <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px">
+            <li><span class="es">Si los efectos se <b>suman</b> (líneas paralelas), lo más probable es que cada factor afecte a una etapa distinta.</span><span class="en">If the effects <b>add up</b> (parallel lines), each factor most likely affects a different stage.</span></li>
+            <li><span class="es">Si <b>interactúan</b> (líneas no paralelas), es probable que compartan al menos una etapa.</span><span class="en">If they <b>interact</b> (non-parallel lines), they probably share at least one stage.</span></li>
+          </ul>
+          <canvas id="p2b" style="aspect-ratio:16/8" data-aria-es="Tiempo de reacción según la calidad del estímulo y el número de alternativas" data-aria-en="Reaction time by stimulus quality and number of alternatives"></canvas>
+          <div class="ctl"><div class="row"><label for="p2-k"><span class="es">Interacción entre los dos factores</span><span class="en">Interaction between the two factors</span></label><output id="p2-k-v"></output></div><input type="range" id="p2-k" min="0" max="80" value="0">
+            <div class="hint"><span><span class="es">0 = efectos aditivos</span><span class="en">0 = additive effects</span></span><span><span class="es">interacción fuerte</span><span class="en">strong interaction</span></span></div></div>
+          <p class="note"><span class="es">La ventaja: no hace falta suponer la inserción pura. El límite: la lógica también se apoya en supuestos (etapas en serie y sin solapamiento), y una interacción admite varias interpretaciones.</span><span class="en">The advantage: pure insertion does not have to be assumed. The limitation: the logic also rests on assumptions (serial, non-overlapping stages), and an interaction admits several interpretations.</span></p>
+        </div>
+      </details>
+      <details class="think"><summary><span class="es">¿Por qué esto importa para la neuroimagen?</span><span class="en">Why does this matter for neuroimaging?</span></summary>
+        <p><span class="es">Porque la resta de imágenes cerebrales hereda el mismo supuesto: “la tarea es el control más un proceso, y nada más cambia”. Si el proceso añadido modifica cómo se hacen los demás, la diferencia de activación no corresponde solo a ese proceso. Este problema se discutió explícitamente en neuroimagen (Friston y cols., 1996) y motivó los diseños factoriales y paramétricos.</span><span class="en">Because brain-image subtraction inherits the same assumption: “the task is the control plus one process, and nothing else changes”. If the added process changes how the others are carried out, the activation difference does not reflect that process alone. This problem was discussed explicitly in neuroimaging (Friston et al., 1996) and motivated factorial and parametric designs.</span></p></details>
+    </div>
+  </section>
+
+  <!-- ============ FASE 3: resta de imágenes ============ -->
+  <section class="phase" id="fase3" data-es="Restar imágenes del cerebro" data-en="Subtracting brain images" hidden>
+    <div class="viz">
+      <canvas id="p3" style="aspect-ratio:16/6.6" data-aria-es="Mapas de actividad de la tarea, del control y su diferencia" data-aria-en="Activity maps for the task, the control and their difference"></canvas>
+      <div class="legend"><span><span class="es">Mapas de tarea y control: más intenso = más actividad.</span><span class="en">Task and control maps: more intense = more activity.</span></span><span><span class="es">Diferencia: rojo = tarea > control; azul = control > tarea.</span><span class="en">Difference: red = task > control; blue = control > task.</span></span></div>
+      <div class="cap"><span class="es">Hemisferio izquierdo visto de lado (frontal a la izquierda). Las regiones y su actividad son esquemáticas: sirven para entender la lógica, no para localizar funciones con precisión.</span><span class="en">Left hemisphere seen from the side (frontal to the left). The regions and their activity are schematic: they illustrate the logic, not precise functional localisation.</span></div>
+    </div>
+    <div class="panel">
+      <div><div class="eyebrow"><span class="es">Fase 3 · Del tiempo a la imagen</span><span class="en">Phase 3 · From time to images</span></div>
+        <h2><span class="es">La misma resta, ahora con mapas de actividad</span><span class="en">The same subtraction, now with activity maps</span></h2></div>
+      <p class="lead"><span class="es">Petersen y cols. (1988) aplicaron la lógica de Donders con tomografía por emisión de positrones (PET) y una <b>jerarquía de tareas</b> con palabras: cada tarea añade un proceso a la anterior. Restar la imagen de una tarea menos la de su control debería dejar solo las regiones del proceso añadido. La fMRI y el EEG heredaron esta lógica.</span><span class="en">Petersen et al. (1988) applied Donders’ logic with positron emission tomography (PET) and a <b>hierarchy of tasks</b> with words: each task adds one process to the previous one. Subtracting the image of a control from that of a task should leave only the regions of the added process. fMRI and EEG inherited this logic.</span></p>
+      <div class="box">
+        <h3><span class="es">Elige la comparación</span><span class="en">Choose the comparison</span></h3>
+        <div class="ctl"><div class="row"><span class="es">Tarea</span><span class="en">Task</span></div><div class="seg small" id="p3-task"></div></div>
+        <div class="ctl"><div class="row"><span class="es">Control</span><span class="en">Control</span></div><div class="seg small" id="p3-ctrl"></div></div>
+        <div class="ctl"><div class="row"><label for="p3-n"><span class="es">Ruido de la medida</span><span class="en">Measurement noise</span></label><output id="p3-n-v"></output></div><input type="range" id="p3-n" min="0" max="100" value="15"></div>
+        <div class="formula" id="p3-formula"></div>
+      </div>
+      <div class="observe"><h3><span class="es">Fíjate en</span><span class="en">Notice</span></h3><ul>
+        <li><span class="es">“Generar verbos − Leer en voz alta” deja sobre todo la región frontal inferior: el proceso añadido (buscar una palabra relacionada).</span><span class="en">“Generate verbs − Read aloud” leaves mainly the inferior frontal region: the added process (retrieving a related word).</span></li>
+        <li><span class="es">“Generar verbos − Fijación” mezcla todo: visión, habla y generación. Con un mal control, la resta no aísla nada.</span><span class="en">“Generate verbs − Fixation” mixes everything: vision, speech and generation. With a poor control, the subtraction isolates nothing.</span></li>
+        <li><span class="es">Invierte la resta (control más complejo que la tarea): aparecen valores negativos. El signo depende de qué restas a qué.</span><span class="en">Reverse the subtraction (control more complex than the task): negative values appear. The sign depends on what you subtract from what.</span></li>
+      </ul></div>
+      <details class="think"><summary><span class="es">Si una región aparece en la resta, ¿esa región “es” el proceso?</span><span class="en">If a region appears in the subtraction, “is” that region the process?</span></summary>
+        <p><span class="es">No necesariamente. La resta indica que la región se activa más en la tarea que en el control, no que sea necesaria ni exclusiva para ese proceso. Y el razonamiento inverso (“se activa esta región, luego estaba ocurriendo tal proceso”) es aún más arriesgado: se llama <b>inferencia inversa</b> y solo es fiable si la región se activa de forma selectiva con ese proceso.</span><span class="en">Not necessarily. The subtraction shows that the region is more active in the task than in the control, not that it is necessary for, or exclusive to, that process. And the reverse reasoning (“this region is active, so that process was happening”) is even riskier: it is called <b>reverse inference</b>, and it is only reliable if the region is selectively active for that process.</span></p></details>
+    </div>
+  </section>
+
+  <!-- ============ FASE 4: restar ondas (ERP) ============ -->
+  <section class="phase" id="fase4" data-es="Restar ondas cerebrales (EEG)" data-en="Subtracting brain waves (EEG)" hidden>
+    <div class="viz">
+      <canvas id="p4" style="aspect-ratio:16/9" data-aria-es="Potenciales evocados de dos condiciones, su onda diferencia y el mapa de la diferencia en el cuero cabelludo" data-aria-en="Event-related potentials for two conditions, their difference wave and the scalp map of the difference"></canvas>
+      <div class="legend"><span><i style="background:var(--c1)"></i><span class="es">condición de control</span><span class="en">control condition</span></span><span><i style="background:var(--c2)"></i><span class="es">condición de interés</span><span class="en">condition of interest</span></span><span><i style="background:var(--ink)"></i><span class="es">diferencia (interés − control)</span><span class="en">difference (interest − control)</span></span></div>
+      <div class="cap"><span class="es">Izquierda, arriba: el ERP de cada condición en un electrodo (líneas finas: algunos ensayos sueltos). Izquierda, abajo: la onda diferencia. Derecha: cómo se distribuye la diferencia por el cuero cabelludo en el instante marcado (rojo = positivo, azul = negativo). Haz clic en la onda diferencia para mover ese instante.</span><span class="en">Top left: the ERP of each condition at one electrode (thin lines: a few single trials). Bottom left: the difference wave. Right: how the difference is distributed over the scalp at the marked instant (red = positive, blue = negative). Click on the difference wave to move that instant.</span></div>
+    </div>
+    <div class="panel">
+      <div><div class="eyebrow"><span class="es">Fase 4 · Del mapa a la onda</span><span class="en">Phase 4 · From maps to waves</span></div>
+        <h2><span class="es">La misma resta con EEG: la onda diferencia</span><span class="en">The same subtraction with EEG: the difference wave</span></h2></div>
+      <p class="lead"><span class="es">En EEG, la señal de un solo ensayo está dominada por el ruido. Se <b>promedian</b> muchos ensayos de cada condición para obtener el potencial relacionado con eventos (<b>ERP</b>), y después se <b>restan</b>: condición de interés menos control. Lo que comparten ambas condiciones desaparece y queda la <b>onda diferencia</b>, con un momento (latencia) y una distribución en el cuero cabelludo característicos.</span><span class="en">In EEG, the signal from a single trial is dominated by noise. Many trials of each condition are <b>averaged</b> to obtain the event-related potential (<b>ERP</b>), and then <b>subtracted</b>: condition of interest minus control. What both conditions share disappears and the <b>difference wave</b> remains, with a characteristic timing (latency) and scalp distribution.</span></p>
+      <div class="box">
+        <h3><span class="es">Elige un ERP clásico</span><span class="en">Choose a classic ERP</span></h3>
+        <div class="seg small" id="p4-par"></div>
+        <div class="formula" id="p4-info"></div>
+      </div>
+      <div class="box">
+        <h3><span class="es">Controles</span><span class="en">Controls</span></h3>
+        <div class="ctl"><div class="row"><label for="p4-n"><span class="es">Ensayos promediados por condición</span><span class="en">Trials averaged per condition</span></label><output id="p4-n-v"></output></div><input type="range" id="p4-n" min="1" max="100" value="40"></div>
+        <div class="ctl"><div class="row"><label for="p4-t"><span class="es">Instante del mapa</span><span class="en">Map instant</span></label><output id="p4-t-v"></output></div><input type="range" id="p4-t" min="-100" max="800" step="4" value="400"></div>
+        <div class="btns"><button class="btn" id="p4-peak"><span class="es">Ir al pico de la diferencia</span><span class="en">Go to the difference peak</span></button></div>
+        <label class="chk"><input type="checkbox" id="p4-neg" checked> <span><span class="es">Negativo hacia arriba (convención habitual en ERP)</span><span class="en">Negative up (common ERP convention)</span></span></label>
+        <div class="readouts">
+          <div class="ro"><div class="k"><span class="es">Pico de la diferencia</span><span class="en">Difference peak</span></div><div class="v" id="p4-pk">–</div></div>
+          <div class="ro"><div class="k"><span class="es">Latencia</span><span class="en">Latency</span></div><div class="v" id="p4-lat">–</div></div>
+        </div>
+      </div>
+      <div class="observe"><h3><span class="es">Fíjate en</span><span class="en">Notice</span></h3><ul>
+        <li><span class="es">Los componentes comunes (P1, N1, P2) están en ambas condiciones y desaparecen en la diferencia: es la lógica de Donders aplicada a ondas.</span><span class="en">The shared components (P1, N1, P2) are present in both conditions and vanish in the difference: Donders’ logic applied to waves.</span></li>
+        <li><span class="es">Con 1 ensayo no se ve nada; al promediar, el ruido se reduce (aproximadamente con la raíz cuadrada del número de ensayos) y la diferencia aparece, también en el mapa.</span><span class="en">With 1 trial nothing is visible; when averaging, the noise shrinks (roughly with the square root of the number of trials) and the difference emerges, in the map too.</span></li>
+        <li><span class="es">Ojo con la inserción pura: la condición de interés también puede cambiar componentes compartidos (en la MMN, el tono desviado da un N1 algo mayor), y ese cambio entra en la diferencia.</span><span class="en">Beware of pure insertion: the condition of interest can also change shared components (in the MMN, the deviant tone gives a slightly larger N1), and that change ends up in the difference.</span></li>
+        <li><span class="es">Cada ERP tiene su “firma”: cuándo aparece y dónde es máximo. Mueve el instante del mapa y compara los cuatro.</span><span class="en">Each ERP has its “signature”: when it appears and where it peaks. Move the map instant and compare the four.</span></li>
+      </ul></div>
+      <details class="think"><summary><span class="es">En la MMN, el tono desviado es físicamente distinto del estándar. ¿Es eso un problema?</span><span class="en">In the MMN, the deviant tone is physically different from the standard. Is that a problem?</span></summary>
+        <p><span class="es">Sí: la resta mezclaría la detección del cambio con la diferencia física entre tonos y con el N1 mayor que produce un estímulo poco frecuente. Por eso se usan controles mejores, por ejemplo comparar el mismo tono cuando es desviado y cuando es estándar en otro bloque (MMN de identidad), o un bloque control con muchos tonos distintos igual de infrecuentes. Es el mismo problema de Donders: la resta solo es tan buena como la condición de control.</span><span class="en">Yes: the subtraction would mix change detection with the physical difference between the tones and with the larger N1 that a rare stimulus produces. That is why better controls are used, for example comparing the same tone when it is a deviant and when it is a standard in another block (identity MMN), or a control block with many different, equally rare tones. It is Donders’ problem again: a subtraction is only as good as its control condition.</span></p></details>
+      <p class="note"><span class="es">ERP simulados para un participante, con valores típicos de latencia, amplitud y distribución. En un estudio real se promedia en cada participante y luego entre participantes, y la referencia elegida influye en la forma del mapa.</span><span class="en">Simulated ERPs for one participant, with typical latency, amplitude and distribution values. In a real study, averaging is done within each participant and then across participants, and the chosen reference affects the shape of the map.</span></p>
+    </div>
+  </section>
+
+  <div class="transport">
+    <div class="in">
+      <button class="btn nav" id="prev"></button>
+      <span class="prog" id="prog"></span>
+      <button class="btn nav next" id="next"></button>
+    </div>
+  </div>
+  <footer class="cred"><span class="es">Material interactivo de apoyo · Neurociencia Cognitiva, Grado en Psicología. Teclas ← → para cambiar de fase (fuera del experimento). Datos de neuroimagen y EEG simulados con fines docentes.</span><span class="en">Interactive teaching material · Cognitive Neuroscience, Psychology degree. Use the ← → keys to change phase (outside the experiment). Neuroimaging and EEG data are simulated for teaching purposes.</span></footer>
+</div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const TAU=Math.PI*2;
+let LANG='es';const T=(es,en)=>LANG==='en'?en:es;
+const fmt=(x,d=1)=>x.toLocaleString(LANG==='en'?'en-GB':'es-ES',{minimumFractionDigits:d,maximumFractionDigits:d});
+let C={};const CANV=[];
+function readColors(){const cs=getComputedStyle(document.documentElement);['bg','surface','surface-2','ink','muted','line','accent','accent-soft','grid','brain','c1','c2','c3','ok','bad'].forEach(k=>C[k]=cs.getPropertyValue('--'+k).trim());CANV.forEach(o=>o.dirty=true);}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',readColors);
+new MutationObserver(readColors).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+function hex(c){c=c.replace('#','');if(c.length===3)c=c.split('').map(x=>x+x).join('');const n=parseInt(c,16);return[(n>>16)&255,(n>>8)&255,n&255];}
+function rgba(c,a){const[r,g,b]=hex(c);return`rgba(${r},${g},${b},${a})`;}
+function cv(id){const c=$(id),o={c,ctx:c.getContext('2d'),w:0,h:0,dirty:true};
+  const fit=()=>{const r=c.getBoundingClientRect();if(r.width<2)return;const d=Math.min(2,window.devicePixelRatio||1);o.w=r.width;o.h=r.height;c.width=Math.round(r.width*d);c.height=Math.round(r.height*d);o.ctx.setTransform(d,0,0,d,0,0);o.dirty=true;};
+  new ResizeObserver(fit).observe(c);fit();CANV.push(o);return o;}
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function gauss(r){let u=0;while(u===0)u=r();return Math.sqrt(-2*Math.log(u))*Math.cos(TAU*r());}
+function label(ctx,txt,x,y,{size=12,col=C.muted,align='left',base='alphabetic',weight=400,font='mono'}={}){
+  ctx.font=`${weight} ${size}px ${font==='mono'?'"JetBrains Mono", ui-monospace, monospace':'"Atkinson Hyperlegible", system-ui, sans-serif'}`;ctx.fillStyle=col;ctx.textAlign=align;ctx.textBaseline=base;ctx.fillText(txt,x,y);}
+function hline(ctx,x0,x1,y,col,w=1,dash){ctx.strokeStyle=col;ctx.lineWidth=w;if(dash)ctx.setLineDash(dash);ctx.beginPath();ctx.moveTo(x0,y);ctx.lineTo(x1,y);ctx.stroke();ctx.setLineDash([]);}
+function seg(id,cb){const el=$(id);el.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;el.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));cb(b.dataset.v);});}
+function rrect(ctx,x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,Math.max(0,w),h,Math.min(r,Math.abs(w)/2));}
+const median=a=>{if(!a.length)return NaN;const s=[...a].sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2;};
+// normal distribution helpers
+function erfc(x){const z=Math.abs(x),t=1/(1+.5*z),r=t*Math.exp(-z*z-1.26551223+t*(1.00002368+t*(.37409196+t*(.09678418+t*(-.18628806+t*(.27886807+t*(-1.13520398+t*(1.48851587+t*(-.82215223+t*.17087277)))))))));return x>=0?r:2-r;}
+const pUpper=z=>.5*erfc(z/Math.SQRT2);
+function tCrit(p,df){const z=zUpper(p);return z+(z**3+z)/(4*df)+(5*z**5+16*z**3+3*z)/(96*df*df);}
+function zUpper(p){let lo=-10,hi=40;for(let i=0;i<80;i++){const m=(lo+hi)/2;if(pUpper(m)>p)lo=m;else hi=m;}return(lo+hi)/2;}
+// colour maps
+const DIV=[[-1,[33,82,160]],[-.6,[67,147,195]],[-.25,[171,212,232]],[0,[247,247,247]],[.25,[250,200,176]],[.6,[222,110,82]],[1,[165,22,40]]];
+function ramp(stops,t){t=Math.max(stops[0][0],Math.min(stops[stops.length-1][0],t));for(let i=1;i<stops.length;i++)if(t<=stops[i][0]){const[a,ca]=stops[i-1],[b,cb]=stops[i],u=(t-a)/(b-a);return`rgb(${ca.map((v,k)=>Math.round(v+(cb[k]-v)*u)).join(',')})`;}return'#000';}
+const divCss=t=>ramp(DIV,t);
+const HOT=[[0,[255,229,150]],[.5,[245,150,40]],[1,[176,30,20]]];
+const hotCss=t=>ramp(HOT,t);
+
+/* ---------- schematic left hemisphere (frontal on the left) ---------- */
+function brainPath(x,y,w,h){const P=new Path2D(),X=u=>x+u*w,Y=v=>y+v*h;
+  P.moveTo(X(.04),Y(.52));
+  P.bezierCurveTo(X(.02),Y(.25),X(.2),Y(.06),X(.45),Y(.04));
+  P.bezierCurveTo(X(.7),Y(.02),X(.92),Y(.14),X(.98),Y(.42));
+  P.bezierCurveTo(X(1.0),Y(.58),X(.95),Y(.7),X(.86),Y(.74));
+  P.bezierCurveTo(X(.76),Y(.86),X(.56),Y(.9),X(.42),Y(.84));
+  P.bezierCurveTo(X(.32),Y(.8),X(.28),Y(.72),X(.3),Y(.66));
+  P.bezierCurveTo(X(.24),Y(.72),X(.12),Y(.74),X(.07),Y(.66));
+  P.bezierCurveTo(X(.05),Y(.62),X(.04),Y(.58),X(.04),Y(.52));P.closePath();return P;}
+function drawBrain(ctx,x,y,w,h){const P=brainPath(x,y,w,h);ctx.fillStyle=C.brain;ctx.fill(P);
+  // cerebellum
+  ctx.beginPath();ctx.ellipse(x+w*.84,y+h*.84,w*.11,h*.09,-.2,0,TAU);ctx.fill();ctx.strokeStyle=rgba(C.ink,.35);ctx.lineWidth=1.2;ctx.stroke();
+  // sylvian fissure + central sulcus (orientation only)
+  ctx.strokeStyle=rgba(C.ink,.22);ctx.lineWidth=1.4;ctx.beginPath();ctx.moveTo(x+w*.3,y+h*.64);ctx.bezierCurveTo(x+w*.45,y+h*.56,x+w*.6,y+h*.55,x+w*.68,y+h*.47);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x+w*.52,y+h*.05);ctx.bezierCurveTo(x+w*.5,y+h*.25,x+w*.46,y+h*.4,x+w*.44,y+h*.55);ctx.stroke();
+  return P;}
+function drawBrainOutline(ctx,P){ctx.strokeStyle=rgba(C.ink,.55);ctx.lineWidth=1.5;ctx.stroke(P);}
+// voxel grid inside the brain (normalised coordinates)
+function makeGrid(nx,ny){const off=document.createElement('canvas'),S=400;off.width=S;off.height=S;const ctx=off.getContext('2d'),P=brainPath(0,0,S,S),cells=[];
+  for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const u=(i+.5)/nx,v=(j+.5)/ny;if(ctx.isPointInPath(P,u*S,v*S))cells.push({i,j,u,v});}return cells;}
+const REG={V:[[.86,.52,.075],[.74,.68,.06]],M:[[.45,.46,.055],[.49,.12,.045]],S:[[.22,.55,.065]]};
+const regAmp=(k,u,v)=>REG[k].reduce((s,[cu,cv,sg])=>s+Math.exp(-((u-cu)**2+(v-cv)**2)/(2*sg*sg)),0);
+
+/* =====================================================================
+   FASE 1 · Donders reaction-time experiment
+   ===================================================================== */
+const RT={task:'a',data:{a:[],c:[],b:[]},err:{a:0,c:0,b:0},example:false,running:false,state:'idle',trial:0,N:10,stim:null,t0:0,timer:null};
+const p1=cv('p1');
+function rtInstr(){const k=RT.task;
+  $('rt-instr').innerHTML=k==='a'?T('<b>Tarea a (simple):</b> responde lo más rápido posible en cuanto aparezca <b>cualquier</b> figura, con la barra espaciadora o el botón.','<b>Task a (simple):</b> respond as fast as possible as soon as <b>any</b> shape appears, with the space bar or the button.')
+   :k==='c'?T('<b>Tarea c (go/no-go):</b> responde (espacio o botón) solo si aparece el <span class="stimkey c"></span> <b>círculo rojo</b>. Si aparece el <span class="stimkey s"></span> cuadrado azul, no hagas nada.','<b>Task c (go/no-go):</b> respond (space or button) only if the <span class="stimkey c"></span> <b>red circle</b> appears. If the <span class="stimkey s"></span> blue square appears, do nothing.')
+   :T('<b>Tarea b (elección):</b> <span class="stimkey c"></span> círculo rojo → tecla <b>F</b> (botón izquierdo); <span class="stimkey s"></span> cuadrado azul → tecla <b>J</b> (botón derecho).','<b>Task b (choice):</b> <span class="stimkey c"></span> red circle → key <b>F</b> (left button); <span class="stimkey s"></span> blue square → key <b>J</b> (right button).');
+  $('rt-keys').innerHTML=k==='b'?`<button class="btn" data-k="left">${T('Círculo (F)','Circle (F)')}</button><button class="btn" data-k="right">${T('Cuadrado (J)','Square (J)')}</button>`:`<button class="btn" data-k="space">${T('Responder (espacio)','Respond (space)')}</button>`;}
+function rtShow(what){const el=$('rt-show');el.innerHTML=what==='fix'?'<span class="fix">+</span>':what?`<div class="stim ${what}"></div>`:'';}
+function rtMsg(t,col){const m=$('rt-msg');m.textContent=t;m.style.color=col||C.ink;}
+function rtCount(){$('rt-count').textContent=RT.running?T(`ensayo ${Math.min(RT.trial+1,RT.N)} de ${RT.N}`,`trial ${Math.min(RT.trial+1,RT.N)} of ${RT.N}`):'';}
+function rtStart(){if(RT.running)return;if(RT.example){RT.data={a:[],c:[],b:[]};RT.err={a:0,c:0,b:0};RT.example=false;}
+  RT.running=true;RT.trial=0;$('rt-start').disabled=true;document.activeElement?.blur();rtMsg('');rtNext();}
+function rtNext(){if(RT.trial>=RT.N){rtEnd();return;}rtCount();RT.state='fore';rtShow('fix');RT.timer=setTimeout(rtStim,700+Math.random()*1300);}
+function rtStim(){RT.stim=Math.random()<.5?'circle':'square';rtShow(RT.stim);RT.state='stim';RT.t0=performance.now();requestAnimationFrame(()=>{if(RT.state==='stim')RT.t0=performance.now();});
+  const go=RT.task!=='c'||RT.stim==='circle';RT.timer=setTimeout(()=>rtTimeout(go),go?1500:1200);}
+function rtTimeout(go){if(RT.state!=='stim')return;RT.state='iti';rtShow(null);
+  if(go){RT.err[RT.task]++;rtMsg(T('Sin respuesta','No response'),C.bad);}else rtMsg(T('Bien: no había que responder','Correct: no response needed'),C.ok);
+  RT.trial++;setTimeout(rtNext,800);}
+function rtRespond(k){if(!RT.running)return;
+  if(RT.state==='fore'){clearTimeout(RT.timer);RT.state='iti';RT.err[RT.task]++;rtShow(null);rtMsg(T('¡Demasiado pronto!','Too early!'),C.bad);setTimeout(rtNext,900);return;}
+  if(RT.state!=='stim')return;const rt=performance.now()-RT.t0;clearTimeout(RT.timer);RT.state='iti';rtShow(null);
+  let ok;if(RT.task==='a')ok=true;else if(RT.task==='c')ok=RT.stim==='circle';else ok=(RT.stim==='circle'&&k==='left')||(RT.stim==='square'&&k==='right');
+  if(ok&&rt>=100){RT.data[RT.task].push(rt);rtMsg(`${Math.round(rt)} ms`,C.ink);}else{RT.err[RT.task]++;rtMsg(RT.task==='c'&&RT.stim==='square'?T('Error: era el cuadrado','Error: it was the square'):T('Error','Error'),C.bad);}
+  RT.trial++;rtUpdate();setTimeout(rtNext,800);}
+function rtEnd(){RT.running=false;RT.state='idle';$('rt-start').disabled=false;rtShow('fix');rtCount();const m=median(RT.data[RT.task]);rtMsg(isNaN(m)?T('Bloque terminado','Block finished'):T(`Bloque terminado · mediana ${Math.round(m)} ms`,`Block finished · median ${Math.round(m)} ms`),C.accent);rtUpdate();}
+function rtUpdate(){const a=median(RT.data.a),c=median(RT.data.c),b=median(RT.data.b);
+  const f=v=>isNaN(v)?'–':(v<0?'−':'')+Math.round(Math.abs(v))+' ms';$('rt-d1').textContent=f(c-a);$('rt-d2').textContent=f(b-c);
+  let note=RT.example?T('Datos de ejemplo simulados. Al empezar un bloque se sustituyen por los tuyos.','Simulated example data. Starting a block replaces them with yours.'):T(`Errores: a ${RT.err.a} · c ${RT.err.c} · b ${RT.err.b}. Solo se usan los ensayos correctos.`,`Errors: a ${RT.err.a} · c ${RT.err.c} · b ${RT.err.b}. Only correct trials are used.`);
+  if((!isNaN(c-a)&&c-a<0)||(!isNaN(b-c)&&b-c<0))note+=' '+T('Hay una diferencia negativa: con pocos ensayos el ruido puede invertir la resta; prueba otro bloque.','There is a negative difference: with few trials, noise can reverse the subtraction; try another block.');
+  $('rt-note').textContent=note;p1.dirty=true;}
+seg('rt-task',v=>{if(RT.running)return;RT.task=v;rtInstr();rtMsg('');p1.dirty=true;});
+$('rt-start').addEventListener('click',rtStart);
+$('rt-keys').addEventListener('click',e=>{const b=e.target.closest('button');if(b){b.blur();rtRespond(b.dataset.k);}});
+$('rt-stage').addEventListener('pointerdown',()=>{if(RT.running&&RT.task!=='b')rtRespond('space');});
+$('rt-example').addEventListener('click',()=>{if(RT.running)return;const r=mulberry(Date.now()%100000);const ex=(mu,sd,tau)=>mu+sd*gauss(r)-tau*Math.log(1-r()*.999);
+  RT.data={a:Array.from({length:20},()=>ex(215,22,45)),c:Array.from({length:20},()=>ex(275,28,55)),b:Array.from({length:20},()=>ex(345,32,65))};RT.err={a:0,c:1,b:2};RT.example=true;rtUpdate();});
+$('rt-clear').addEventListener('click',()=>{if(RT.running)return;RT.data={a:[],c:[],b:[]};RT.err={a:0,c:0,b:0};RT.example=false;rtUpdate();rtMsg('');});
+document.addEventListener('keydown',e=>{if(cur!==0||!RT.running)return;const k=e.key.toLowerCase();
+  if(e.code==='Space'||k===' '){e.preventDefault();if(RT.task!=='b')rtRespond('space');}
+  else if(k==='f'){if(RT.task==='b')rtRespond('left');else rtRespond('space');}
+  else if(k==='j'){if(RT.task==='b')rtRespond('right');else rtRespond('space');}});
+function p1draw(){const o=p1,ctx=o.ctx,w=o.w,h=o.h;if(!w||!o.dirty)return;o.dirty=false;ctx.clearRect(0,0,w,h);
+  const x0=150,x1=w-16,MAX=800,X=v=>x0+(x1-x0)*Math.min(v,MAX)/MAX,rows=[['a',T('a · simple','a · simple')],['c',T('c · go/no-go','c · go/no-go')],['b',T('b · elección','b · choice')]];
+  const rh=(h-34)/3,ma=median(RT.data.a),mc=median(RT.data.c),mb=median(RT.data.b);
+  for(let v=0;v<=MAX;v+=100){const x=X(v);ctx.strokeStyle=v?rgba(C.ink,.07):C.line;ctx.beginPath();ctx.moveTo(x,6);ctx.lineTo(x,h-26);ctx.stroke();label(ctx,v+(v===MAX?' ms':''),x,h-10,{align:v===MAX?'right':'center',size:10});}
+  rows.forEach(([k,nm],j)=>{const y=6+rh*j,by=y+rh*.18,bh=rh*.42;label(ctx,nm,10,by+bh/2,{base:'middle',size:12,col:C.ink,weight:600});
+    const m=median(RT.data[k]);label(ctx,isNaN(m)?T('sin datos','no data'):`${Math.round(m)} ms · n=${RT.data[k].length}`,10,by+bh/2+15,{base:'middle',size:10});
+    if(!isNaN(m)){const segs=[];const base=isNaN(ma)?m:Math.min(ma,m);segs.push([0,k==='a'?m:base,C.c1]);
+      if(k!=='a'&&!isNaN(ma)){const dEnd=k==='c'?m:(isNaN(mc)?m:Math.max(base,Math.min(mc,m)));if(dEnd>base)segs.push([base,dEnd,C.c2]);if(k==='b'&&!isNaN(mc)&&m>dEnd)segs.push([dEnd,m,C.c3]);}
+      segs.forEach(([a,b,col],si)=>{ctx.fillStyle=col;rrect(ctx,X(a)+(si?1:0),by,X(b)-X(a)-(si?1:0),bh,4);ctx.fill();});
+      if(k!=='a'&&!isNaN(ma)&&isNaN(mc)&&k==='b'){ctx.fillStyle=rgba(C.ink,.12);rrect(ctx,X(base)+1,by,X(m)-X(base)-1,bh,4);ctx.fill();label(ctx,T('falta la tarea c','task c missing'),X(base)+6,by+bh/2,{base:'middle',size:10,col:C.ink});}}
+    RT.data[k].forEach((v,i)=>{ctx.fillStyle=rgba(C.ink,.55);ctx.beginPath();ctx.arc(X(v),by+bh+8+((i*37)%7)-3,2.6,0,TAU);ctx.fill();});});
+}
+
+/* =====================================================================
+   FASE 2 · pure insertion & additive factors
+   ===================================================================== */
+const p2=cv('p2'),p2b=cv('p2b');const P2={i:0,k:0};
+function p2read(){P2.i=+$('p2-i').value;P2.k=+$('p2-k').value;$('p2-i-v').textContent=(P2.i>0?'+':P2.i<0?'−':'')+Math.abs(P2.i)+' ms';$('p2-k-v').textContent=P2.k+' ms';$('p2-est').textContent=(60+P2.i)+' ms';p2.dirty=true;p2b.dirty=true;}
+['p2-i','p2-k'].forEach(id=>$(id).addEventListener('input',p2read));
+$('p2-deep').addEventListener('toggle',()=>{p2b.dirty=true;});
+function p2draw(){const o=p2,ctx=o.ctx,w=o.w,h=o.h;if(!w||!o.dirty)return;o.dirty=false;ctx.clearRect(0,0,w,h);
+  const x0=110,x1=w-16,MAX=320,X=v=>x0+(x1-x0)*v/MAX;
+  const st={det:[T('detección','detection'),C.c1],dis:[T('discriminación','discrimination'),C.c2],mot:[T('respuesta motora','motor response'),C.c1]};
+  const rows=[['a',[['det',100],['mot',80]]],['c',[['det',100],['dis',60],['mot',80+P2.i]]]];
+  const rh=h*.17;
+  label(ctx,T('Duración real de las etapas (simulada)','True stage durations (simulated)'),x0,16,{size:11,col:C.ink,weight:600});
+  rows.forEach(([nm,ss],j)=>{const y=28+j*(rh+14);label(ctx,T('tarea ','task ')+nm,10,y+rh/2,{base:'middle',size:12,col:C.ink,weight:600});let t=0;
+    ss.forEach(([k,d],si)=>{ctx.fillStyle=k==='mot'&&j===1&&P2.i!==0?rgba(st[k][1],.6):st[k][1];rrect(ctx,X(t)+(si?1.5:0),y,X(t+d)-X(t)-(si?1.5:0),rh,4);ctx.fill();
+      if(X(t+d)-X(t)>70)label(ctx,`${st[k][0]} ${d}`,X(t)+6,y+rh/2,{base:'middle',size:10.5,col:'#fff',weight:600});t+=d;});
+    label(ctx,`= ${t} ms`,X(t)+6,y+rh/2,{base:'middle',size:11,col:C.ink});});
+  const ye=28+2*(rh+14)+22,ta=180,tc=240+P2.i,eh=rh*.7;
+  label(ctx,T('Estimación por resta: c − a','Subtraction estimate: c − a'),x0,ye-8,{size:11,col:C.ink,weight:600});
+  ctx.fillStyle=C.c2;rrect(ctx,X(0),ye,X(tc-ta)-X(0),eh,4);ctx.fill();
+  label(ctx,`${tc-ta} ms`,X(Math.max(tc-ta,0))+8,ye+eh/2,{base:'middle',size:12,col:C.ink,weight:600});
+  ctx.setLineDash([4,3]);ctx.strokeStyle=C.ink;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(X(60),ye-4);ctx.lineTo(X(60),ye+eh+4);ctx.stroke();ctx.setLineDash([]);
+  label(ctx,T('real: 60 ms','true: 60 ms'),X(60),ye+eh+16,{align:'center',size:10});
+  for(let v=0;v<=MAX;v+=40)label(ctx,v+(v===MAX?' ms':''),X(v),Math.min(h-6,ye+eh+34),{align:v===MAX?'right':'center',size:9.5});
+}
+function p2bdraw(){const o=p2b,ctx=o.ctx,w=o.w,h=o.h;if(!w||!o.dirty)return;o.dirty=false;ctx.clearRect(0,0,w,h);
+  const gx0=70,gx1=w-170,gy0=30,gy1=h-30,RTm=360,RTM=560,Y=v=>gy1-(gy1-gy0)*(v-RTm)/(RTM-RTm);
+  for(let v=RTm;v<=RTM;v+=50){hline(ctx,gx0,gx1,Y(v),rgba(C.ink,.08));label(ctx,v+' ms',gx0-6,Y(v),{align:'right',base:'middle',size:9.5});}
+  const xs=[gx0+40,gx1-40];label(ctx,T('2 alternativas','2 choices'),xs[0],gy1+18,{align:'center',size:10.5});label(ctx,T('4 alternativas','4 choices'),xs[1],gy1+18,{align:'center',size:10.5});
+  const lines=[[T('estímulo nítido','clear stimulus'),[400,460],C.c1],[T('estímulo degradado','degraded stimulus'),[440,500+P2.k],C.c2]];
+  lines.forEach(([nm,v,col])=>{ctx.strokeStyle=col;ctx.lineWidth=2.4;ctx.beginPath();ctx.moveTo(xs[0],Y(v[0]));ctx.lineTo(xs[1],Y(v[1]));ctx.stroke();v.forEach((vv,i)=>{ctx.fillStyle=col;ctx.strokeStyle=C.surface;ctx.lineWidth=2;ctx.beginPath();ctx.arc(xs[i],Y(vv),5.5,0,TAU);ctx.fill();ctx.stroke();});
+    label(ctx,nm,xs[1]+12,Y(v[1]),{base:'middle',size:10.5,col:C.ink});});
+  label(ctx,P2.k<5?T('paralelas → efectos aditivos → etapas distintas','parallel → additive effects → different stages'):T('no paralelas → interacción → etapa compartida','not parallel → interaction → shared stage'),gx0,14,{size:11,col:C.accent,weight:600});
+}
+
+/* =====================================================================
+   FASE 3 · Petersen-style subtraction of images
+   ===================================================================== */
+const p3=cv('p3');const G3=makeGrid(46,32);
+const COND=[{es:'Fijación',en:'Fixation',k:[]},{es:'Ver palabras',en:'View words',k:['V']},{es:'Leer en voz alta',en:'Read aloud',k:['V','M']},{es:'Generar verbos',en:'Generate verbs',k:['V','M','S']}];
+const KN={V:[ 'visión de palabras','word vision'],M:['habla (articulación)','speech (articulation)'],S:['generación de palabras','word generation']};
+const P3={task:3,ctrl:2,noise:.15};
+const R3n=mulberry(31),N3=[G3.map(()=>gauss(R3n)),G3.map(()=>gauss(R3n)),G3.map(()=>gauss(R3n)),G3.map(()=>gauss(R3n))];
+function act3(ci,idx){const c=G3[idx];let v=.15;COND[ci].k.forEach(k=>v+=regAmp(k,c.u,c.v));return v+P3.noise*N3[ci][idx];}
+function p3segs(){['p3-task','p3-ctrl'].forEach((id,j)=>{$(id).innerHTML=COND.map((c,i)=>`<button data-v="${i}" aria-pressed="${i===(j?P3.ctrl:P3.task)}">${T(c.es,c.en)}</button>`).join('');});
+  const t=COND[P3.task],c=COND[P3.ctrl],only=t.k.filter(k=>!c.k.includes(k)),neg=c.k.filter(k=>!t.k.includes(k));
+  const nm=k=>T(KN[k][0],KN[k][1]);
+  $('p3-formula').innerHTML=`${T('Tarea','Task')}: ${t.k.length?t.k.map(nm).join(' + '):T('nada','nothing')}<br>${T('Control','Control')}: ${c.k.length?c.k.map(nm).join(' + '):T('nada','nothing')}<br><b>${T('Diferencia','Difference')}: ${only.length?only.map(nm).join(' + '):T('ningún proceso propio de la tarea','no task-specific process')}${neg.length?' − '+neg.map(nm).join(' − '):''}</b>`;p3.dirty=true;}
+$('p3-task').addEventListener('click',e=>{const b=e.target.closest('button');if(b){P3.task=+b.dataset.v;p3segs();}});
+$('p3-ctrl').addEventListener('click',e=>{const b=e.target.closest('button');if(b){P3.ctrl=+b.dataset.v;p3segs();}});
+$('p3-n').addEventListener('input',e=>{P3.noise=e.target.value/100;$('p3-n-v').textContent=e.target.value+' %';p3.dirty=true;});
+function drawMap(ctx,x,y,w,h,vals,mode,title){const P=drawBrain(ctx,x,y,w,h),cw=w/46,ch=h/32;
+  ctx.save();ctx.clip(P);G3.forEach((c,i)=>{const v=vals[i];if(mode==='div'){if(Math.abs(v)<.12)return;ctx.fillStyle=divCss(v/1.6);}else{if(v<.3)return;ctx.fillStyle=hotCss(Math.min(1,(v-.3)/1.5));}ctx.fillRect(x+c.i*cw,y+c.j*ch,cw+.6,ch+.6);});ctx.restore();
+  drawBrainOutline(ctx,P);label(ctx,title,x+w/2,y-8,{align:'center',size:12,col:C.ink,weight:600});}
+function p3draw(){const o=p3,ctx=o.ctx,w=o.w,h=o.h;if(!w||!o.dirty)return;o.dirty=false;ctx.clearRect(0,0,w,h);
+  const vert=h>w,tv=G3.map((c,i)=>act3(P3.task,i)),cvv=G3.map((c,i)=>act3(P3.ctrl,i)),dv=tv.map((v,i)=>v-cvv[i]);
+  const panels=[[tv,'seq',T('Tarea: ','Task: ')+T(COND[P3.task].es,COND[P3.task].en)],[cvv,'seq',T('Control: ','Control: ')+T(COND[P3.ctrl].es,COND[P3.ctrl].en)],[dv,'div',T('Tarea − Control','Task − Control')]];
+  panels.forEach(([v,m,t],k)=>{let x,y,pw,ph;if(vert){ph=(h-60)/3;pw=Math.min(w-20,ph*1.35);x=(w-pw)/2;y=24+k*(ph+18);}else{pw=(w-60)/3;ph=pw/1.35;x=12+k*(pw+18);y=Math.max(24,(h-ph)/2);}
+    drawMap(ctx,x,y,pw,ph,v,m,t);if(!vert&&k<2)label(ctx,k===0?'−':'=',x+pw+9,y+ph/2,{align:'center',base:'middle',size:22,col:C.ink,weight:700});});
+}
+
+/* =====================================================================
+   FASE 4 · classic ERPs and difference waves
+   ===================================================================== */
+const p4=cv('p4');const FS4=250,T0=-.2,T1=.8,NT=Math.round((T1-T0)*FS4)+1,NMAX=100;
+const tt=i=>T0+i/FS4,gw=(t,m,s)=>Math.exp(-((t-m)**2)/(2*s*s)),g2=(x,y,cx,cy,s)=>Math.exp(-((x-cx)**2+(y-cy)**2)/(2*s*s));
+// scalp topographies of the components that differ (x: right, y: front; unit circle ≈ head outline)
+const TOPO={
+  p3:(x,y)=>g2(x,y,0,-.35,.5),
+  n2:(x,y)=>g2(x,y,0,.15,.5),
+  mmn:(x,y)=>g2(x,y,0,.3,.5)-.6*(g2(x,y,-.95,-.15,.25)+g2(x,y,.95,-.15,.25)),
+  p3a:(x,y)=>g2(x,y,0,.2,.5),
+  n400:(x,y)=>g2(x,y,.12,-.15,.55),
+  n170:(x,y)=>g2(x,y,.7,-.53,.28)+.7*g2(x,y,-.7,-.53,.28)-.45*g2(x,y,0,.15,.45),
+  n1a:(x,y)=>g2(x,y,0,.2,.55)};
+const ELP={Fz:[0,.43],Cz:[0,0],Pz:[0,-.43],Oz:[0,-.86],T7:[-.86,0],T8:[.86,0],P7:[-.7,-.51],P8:[.7,-.51],F3:[-.4,.42],F4:[.4,.42],C3:[-.43,0],C4:[.43,0],P3:[-.36,-.42],P4:[.36,-.42],Fp1:[-.28,.8],Fp2:[.28,.8],O1:[-.28,-.82],O2:[.28,-.82],F7:[-.72,.5],F8:[.72,.5]};
+const PAR={
+ p300:{name:['P300','P300'],el:'Pz',
+   ctrl:['Estímulo frecuente (estándar, 80 %)','Frequent stimulus (standard, 80 %)'],cond:['Estímulo infrecuente al que hay que responder (diana, 20 %)','Rare stimulus that requires a response (target, 20 %)'],
+   shared:[[.1,.02,2],[.17,.025,-4],[.23,.035,3],[.4,.08,2.5]],extra:[[.25,.025,-2,'n2'],[.4,.07,10,'p3']],
+   info:['<b>Paradigma oddball visual.</b> La P300 fue descrita por Sutton y cols. (1965). La diferencia muestra la <b>P300</b> (P3b): positiva, entre 300 y 600 ms, máxima en electrodos parietales, precedida de una pequeña negatividad (N2). Se asocia a la evaluación de estímulos relevantes y a la actualización del contexto. Ojo: la diana difiere del estándar en probabilidad <i>y</i> en que exige respuesta, así que la resta mezcla ambas cosas (a veces se pide contar las dianas en silencio para evitar la actividad motora).','<b>Visual oddball paradigm.</b> The P300 was first described by Sutton et al. (1965). The difference shows the <b>P300</b> (P3b): positive, between 300 and 600 ms, maximal over parietal electrodes, preceded by a small negativity (N2). It is associated with evaluating relevant stimuli and updating context. Note: the target differs from the standard in probability <i>and</i> in requiring a response, so the subtraction mixes both (participants are sometimes asked to count targets silently to avoid motor activity).']},
+ mmn:{name:['MMN','MMN'],el:'Fz',
+   ctrl:['Tono estándar (frecuente)','Standard tone (frequent)'],cond:['Tono desviado (otra frecuencia, infrecuente)','Deviant tone (different pitch, rare)'],
+   shared:[[.05,.012,1.5],[.1,.02,-5],[.18,.03,3]],extra:[[.1,.02,-1,'n1a'],[.17,.035,-3.5,'mmn'],[.29,.04,2,'p3a']],
+   info:['<b>Oddball auditivo pasivo</b>: la persona no atiende a los tonos (por ejemplo, ve una película muda). Descrita por Näätänen y cols. (1978). La diferencia muestra la <b>negatividad de disparidad (MMN)</b>: negativa, entre 100 y 250 ms, frontocentral, y con la polaridad invertida en las mastoides si la referencia está en la nariz. Refleja la detección automática del cambio. La diferencia también incluye un N1 algo mayor para el tono desviado (las neuronas que lo procesan están menos “fatigadas”) y, si el cambio es llamativo, una P3a posterior.','<b>Passive auditory oddball</b>: the person does not attend to the tones (for example, watches a silent film). First described by Näätänen et al. (1978). The difference shows the <b>mismatch negativity (MMN)</b>: negative, between 100 and 250 ms, frontocentral, and with inverted polarity at the mastoids if the reference is on the nose. It reflects automatic change detection. The difference also includes a slightly larger N1 for the deviant tone (the neurons processing it are less “fatigued”) and, if the change is salient, a later P3a.']},
+ n400:{name:['N400','N400'],el:'Cz',
+   ctrl:['Final de frase esperado (“untó el pan con mantequilla”)','Expected sentence ending (“spread the bread with butter”)'],cond:['Final inesperado (“untó el pan con calcetines”)','Unexpected ending (“spread the bread with socks”)'],
+   shared:[[.1,.025,-4],[.2,.035,5],[.4,.09,-1.5]],extra:[[.4,.09,-5,'n400']],
+   info:['<b>Incongruencia semántica</b> (Kutas y Hillyard, 1980). Las frases se presentan palabra a palabra y el ERP se mide desde la última palabra. La diferencia muestra el <b>N400</b>: negativo, entre 300 y 500 ms, centroparietal (a menudo algo mayor a la derecha). Toda palabra con significado produce un N400; su amplitud aumenta cuanto menos esperable es la palabra en su contexto.','<b>Semantic incongruity</b> (Kutas and Hillyard, 1980). Sentences are presented word by word and the ERP is measured from the final word. The difference shows the <b>N400</b>: negative, between 300 and 500 ms, centroparietal (often slightly larger on the right). Every meaningful word elicits an N400; its amplitude increases the less expected the word is in its context.']},
+ n170:{name:['N170','N170'],el:'P8',
+   ctrl:['Fotografías de objetos (p. ej., coches)','Photographs of objects (e.g., cars)'],cond:['Fotografías de caras','Photographs of faces'],
+   shared:[[.1,.02,4],[.17,.022,-2],[.26,.04,3]],extra:[[.17,.022,-6,'n170']],
+   info:['<b>Caras frente a objetos</b> (Bentin y cols., 1996). La diferencia muestra la <b>N170</b>: negativa, hacia los 170 ms, en electrodos occipitotemporales (P7/P8 y vecinos), normalmente mayor en el hemisferio derecho. Al mismo tiempo aparece una positividad en el vértex (VPP), que se considera la otra cara del mismo generador. Los objetos también producen una N170, pero menor.','<b>Faces versus objects</b> (Bentin et al., 1996). The difference shows the <b>N170</b>: negative, around 170 ms, over occipitotemporal electrodes (P7/P8 and neighbours), usually larger over the right hemisphere. A positivity appears at the vertex at the same time (VPP), considered the other side of the same generator. Objects also elicit an N170, but a smaller one.']}};
+const P4={par:'p300',n:40,t:.4,neg:true};
+const R4=mulberry(77);
+function smoothNoise(){const a=new Float64Array(NT+20);for(let i=0;i<a.length;i++)a[i]=gauss(R4);const o=new Float64Array(NT);for(let i=0;i<NT;i++){let s=0;for(let j=0;j<10;j++)s+=a[i+j];o[i]=s/Math.sqrt(10)*6;}
+  const ph=R4()*TAU,amp=3+R4()*4;for(let i=0;i<NT;i++)o[i]+=amp*Math.sin(TAU*10*tt(i)+ph);return o;}
+const NOISE=[0,1].map(()=>Array.from({length:NMAX},smoothNoise));
+const CUM=[0,1].map(c=>{const acc=[];let run=new Float64Array(NT);for(let k=0;k<NMAX;k++){run=run.map((v,i)=>v+NOISE[c][k][i]);acc.push(Float64Array.from(run));}return acc;});
+// spatial noise fields for the map (smooth random fields)
+const FIELDS=Array.from({length:6},()=>{const b=Array.from({length:5},()=>[R4()*2-1,R4()*2-1,.25+R4()*.3,gauss(R4)]);return(x,y)=>b.reduce((s,[cx,cy,sg,a])=>s+a*g2(x,y,cx,cy,sg),0);});
+const ELn=k=>{const e=ELP[PAR[k].el],extra=PAR[k].extra;return extra.map(([,, ,tp])=>TOPO[tp](e[0],e[1]));};
+const wave=(comps,i)=>comps.reduce((s,[m,sg,a])=>s+a*gw(tt(i),m,sg),0);
+function p4tpl(){const p=PAR[P4.par],norm=ELn(P4.par);
+  const A=Float64Array.from({length:NT},(_,i)=>wave(p.shared,i));
+  const D=Float64Array.from({length:NT},(_,i)=>p.extra.reduce((s,[m,sg,a],j)=>s+a*gw(tt(i),m,sg),0));
+  return{A,B:A.map((v,i)=>v+D[i]),D,norm};}
+function p4calc(){const n=P4.n,tp=p4tpl();const m=[0,1].map(c=>Float64Array.from({length:NT},(_,i)=>(c?tp.B[i]:tp.A[i])+CUM[c][n-1][i]/n));
+  const d=m[1].map((v,i)=>v-m[0][i]);P4.m=m;P4.d=d;P4.tp=tp;
+  // peak of the (noisy) difference within 0–700 ms, signed like the main component
+  const main=PAR[P4.par].extra.reduce((a,b)=>Math.abs(b[2])>Math.abs(a[2])?b:a),sg=Math.sign(main[2]);let bi=0,bv=-1e9;
+  for(let i=0;i<NT;i++){const t=tt(i);if(t<.05||t>.7)continue;if(sg*d[i]>bv){bv=sg*d[i];bi=i;}}P4.peak=bi;
+  $('p4-n-v').textContent=n;$('p4-pk').textContent=(d[bi]>=0?'+':'−')+fmt(Math.abs(d[bi]),1)+' µV';$('p4-lat').textContent=Math.round(tt(bi)*1000)+' ms';
+  $('p4-t-v').textContent=Math.round(P4.t*1000)+' ms';p4.dirty=true;}
+function p4segs(){$('p4-par').innerHTML=Object.keys(PAR).map(k=>`<button data-v="${k}" aria-pressed="${k===P4.par}">${PAR[k].name[0]}</button>`).join('');
+  const p=PAR[P4.par];$('p4-info').innerHTML=`<span style="color:var(--c1)">■</span> ${T('Control','Control')}: ${T(p.ctrl[0],p.ctrl[1])}<br><span style="color:var(--c2)">■</span> ${T('Interés','Interest')}: ${T(p.cond[0],p.cond[1])}<br>${T('Electrodo','Electrode')}: <b>${p.el}</b><br><br><span style="font-family:var(--f-body)">${T(p.info[0],p.info[1])}</span>`;}
+$('p4-par').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;P4.par=b.dataset.v;p4segs();p4calc();P4.t=tt(P4.peak);$('p4-t').value=Math.round(P4.t*1000);p4calc();});
+$('p4-n').addEventListener('input',e=>{P4.n=+e.target.value;p4calc();});
+$('p4-t').addEventListener('input',e=>{P4.t=e.target.value/1000;p4calc();});
+$('p4-peak').addEventListener('click',()=>{P4.t=tt(P4.peak);$('p4-t').value=Math.round(P4.t*1000);p4calc();});
+$('p4-neg').addEventListener('change',e=>{P4.neg=e.target.checked;p4.dirty=true;});
+let P4geo=null;
+p4.c.addEventListener('pointerdown',e=>{if(!P4geo)return;const r=p4.c.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,{x0,x1,d0,d1}=P4geo;if(x<x0||x>x1||y<d0-10||y>d1+10)return;
+  const t=Math.max(-.1,Math.min(.8,T0+(x-x0)/(x1-x0)*(T1-T0)));P4.t=Math.round(t*250)/250;$('p4-t').value=Math.round(P4.t*1000);p4calc();});
+function p4draw(){const o=p4,ctx=o.ctx,w=o.w,h=o.h;if(!w||!o.dirty||!P4.m)return;o.dirty=false;ctx.clearRect(0,0,w,h);
+  const vert=h>w*.7,sgn=P4.neg?-1:1;
+  const x0=52,x1=vert?w-14:w*.62,a0=26,a1=vert?h*.3:h*.47,d0=vert?h*.36:h*.58,d1=vert?h*.56:h-30;P4geo={x0,x1,d0,d1};
+  const X=t=>x0+(x1-x0)*(t-T0)/(T1-T0);
+  const panel=(y0,y1,M,title)=>{const ym=(y0+y1)/2,Y=v=>ym-sgn*v*(y1-y0)/2/M;
+    for(const v of[-M,-M/2,0,M/2,M]){hline(ctx,x0,x1,Y(v),v?rgba(C.ink,.07):C.line);label(ctx,(v>0?'+':v<0?'−':'')+fmt(Math.abs(v),0),x0-6,Y(v),{align:'right',base:'middle',size:9.5});}
+    ctx.strokeStyle=C.line;ctx.beginPath();ctx.moveTo(X(0),y0);ctx.lineTo(X(0),y1);ctx.stroke();label(ctx,title,x0,y0-8,{size:11,col:C.ink,weight:600});label(ctx,'µV',x0-6,y0-8,{align:'right',size:9.5});return Y;};
+  const line=(arr,Y,col,lw,y0,y1)=>{ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.beginPath();for(let i=0;i<NT;i++){const y=Math.max(y0,Math.min(y1,Y(arr[i])));i?ctx.lineTo(X(tt(i)),y):ctx.moveTo(X(tt(i)),y);}ctx.stroke();};
+  const p=PAR[P4.par],tp=P4.tp;
+  const Ya=panel(a0,a1,15,T(`ERP de cada condición · ${p.el}`,`ERP of each condition · ${p.el}`));
+  for(let c=0;c<2;c++)for(let k=0;k<Math.min(3,P4.n);k++)line(NOISE[c][k].map((v,i)=>v+(c?tp.B[i]:tp.A[i])),Ya,rgba(c?C.c2:C.c1,.2),1,a0,a1);
+  line(P4.m[0],Ya,C.c1,2.4,a0,a1);line(P4.m[1],Ya,C.c2,2.4,a0,a1);
+  const Yd=panel(d0,d1,12,T('Onda diferencia (interés − control)','Difference wave (interest − control)'));
+  ctx.setLineDash([3,3]);line(tp.D,Yd,rgba(C.ink,.35),1.3,d0,d1);ctx.setLineDash([]);
+  line(P4.d,Yd,C.ink,2.6,d0,d1);
+  const main=p.extra.reduce((a,b)=>Math.abs(b[2])>Math.abs(a[2])?b:a);{const yp=Yd(main[2]),dir=Math.sign(yp-Yd(0))||1;label(ctx,p.name[0],X(main[0])+14,Math.max(d0+10,Math.min(d1-4,yp+dir*14)),{size:11,col:C.ink,weight:600});}
+  // cursor
+  ctx.strokeStyle=C.accent;ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(X(P4.t),a0);ctx.lineTo(X(P4.t),d1);ctx.stroke();
+  for(let s=-200;s<=800;s+=200)label(ctx,s+(s===800?' ms':''),X(s/1000),d1+16,{align:s===800?'right':'center',size:9.5});
+  label(ctx,T('discontinua: diferencia real, sin ruido','dashed: true difference, no noise'),x1,d0-8,{align:'right',size:9.5});
+  // topomap of the difference at the cursor
+  const R=vert?Math.min(w*.3,(h-d1-70)/2):Math.min((w-x1-40)/2,h*.33),cx=vert?w/2:x1+(w-x1)/2+6,cy=vert?d1+50+R:h*.46;
+  const ti=Math.round((P4.t-T0)*FS4),M=Math.max(...p.extra.map(e=>Math.abs(e[2])))*1.05;
+  const G=64,img=new ImageData(G,G),noiseScale=4/Math.sqrt(P4.n);
+  for(let j=0;j<G;j++)for(let i=0;i<G;i++){const x=(i+.5)/G*2-1,y=1-(j+.5)/G*2;if(x*x+y*y>1)continue;
+    let v=0;p.extra.forEach(([m,sg,a,tpk],q)=>{v+=a*gw(tt(ti),m,sg)*TOPO[tpk](x,y)/tp.norm[q];});
+    v+=noiseScale*FIELDS[(Object.keys(PAR).indexOf(P4.par)+ti)%6](x,y)*.6;
+    const c=divCss(v/M).match(/\d+/g).map(Number);img.data.set([c[0],c[1],c[2],255],(j*G+i)*4);}
+  const off=document.createElement('canvas');off.width=G;off.height=G;off.getContext('2d').putImageData(img,0,0);
+  ctx.save();ctx.beginPath();ctx.arc(cx,cy,R,0,TAU);ctx.clip();ctx.imageSmoothingEnabled=true;ctx.drawImage(off,cx-R,cy-R,2*R,2*R);ctx.restore();
+  ctx.strokeStyle=C.ink;ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,R,0,TAU);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx-R*.1,cy-R*.995);ctx.lineTo(cx,cy-R*1.12);ctx.lineTo(cx+R*.1,cy-R*.995);ctx.stroke();
+  for(const s of[-1,1]){ctx.beginPath();ctx.ellipse(cx+s*R*1.03,cy,R*.05,R*.15,0,s<0?Math.PI/2:-Math.PI/2,s<0?Math.PI*1.5:Math.PI/2);ctx.stroke();}
+  for(const[nm,[ex,ey]]of Object.entries(ELP)){const x=cx+ex*R,y=cy-ey*R,isEl=nm===p.el;ctx.fillStyle=isEl?C.accent:'#222';ctx.beginPath();ctx.arc(x,y,isEl?5:2.2,0,TAU);ctx.fill();
+    if(isEl||R>110)label(ctx,nm,x,y-7,{align:'center',size:isEl?11:9,col:isEl?'#111':'rgba(20,20,20,.7)',weight:isEl?700:400});}
+  label(ctx,T(`Diferencia a ${Math.round(P4.t*1000)} ms`,`Difference at ${Math.round(P4.t*1000)} ms`),cx,cy-R*1.12-10,{align:'center',size:11.5,col:C.ink,weight:600});
+  const cbw=Math.min(2*R,180),cbx=cx-cbw/2,cby=cy+R+16;for(let i=0;i<cbw;i++){ctx.fillStyle=divCss(i/cbw*2-1);ctx.fillRect(cbx+i,cby,1.5,8);}
+  label(ctx,'−'+fmt(M,0)+' µV',cbx,cby+20,{size:9.5});label(ctx,'+'+fmt(M,0)+' µV',cbx+cbw,cby+20,{align:'right',size:9.5});label(ctx,'0',cx,cby+20,{align:'center',size:9.5});
+}
+
+/* =====================================================================
+   Navigation, language, loop
+   ===================================================================== */
+const PH=[...document.querySelectorAll('.phase')];let cur=0;
+const ttl=i=>PH[i].dataset[LANG];
+function renderStepper(){$('stepper').innerHTML=PH.map((p,i)=>`<li><button data-i="${i}"><span class="n">${i+1}</span>${ttl(i)}</button></li>`).join('');}
+function rtAbort(){if(!RT.running)return;clearTimeout(RT.timer);RT.running=false;RT.state='idle';$('rt-start').disabled=false;rtShow('fix');rtCount();rtMsg('');rtUpdate();}
+function go(i){rtAbort();cur=Math.max(0,Math.min(PH.length-1,i));PH.forEach((p,j)=>p.hidden=j!==cur);
+  document.querySelectorAll('#stepper button').forEach((b,j)=>{b.removeAttribute('aria-current');if(j===cur)b.setAttribute('aria-current','step');b.classList.toggle('done',j<cur);});
+  $('prog').textContent=T(`Fase ${cur+1} de ${PH.length}`,`Phase ${cur+1} of ${PH.length}`)+` · ${ttl(cur)}`;
+  $('prev').disabled=cur===0;$('prev').textContent=T('← Anterior','← Previous');$('next').textContent=cur===PH.length-1?T('Volver al inicio ↺','Back to start ↺'):T('Siguiente →','Next →');
+  CANV.forEach(o=>o.dirty=true);try{history.replaceState(null,'','#fase'+(cur+1));}catch(e){}
+  document.querySelector('#stepper button[aria-current]')?.scrollIntoView({block:'nearest',inline:'center'});}
+$('stepper').addEventListener('click',e=>{const b=e.target.closest('button');if(b){go(+b.dataset.i);window.scrollTo({top:0});}});
+$('prev').addEventListener('click',()=>{go(cur-1);window.scrollTo({top:0});});
+$('next').addEventListener('click',()=>{go(cur===PH.length-1?0:cur+1);window.scrollTo({top:0});});
+document.addEventListener('keydown',e=>{if(RT.running||['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return;if(e.key==='ArrowRight')go(cur+1);if(e.key==='ArrowLeft')go(cur-1);});
+function applyLang(l){LANG=l==='en'?'en':'es';document.documentElement.dataset.lang=LANG;document.documentElement.lang=LANG;document.title=T('El método sustractivo','The Subtractive Method');
+  try{localStorage.setItem('don-lang',LANG);}catch(e){}
+  $('lang').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===LANG?'true':'false'));
+  document.querySelectorAll('canvas[data-aria-es]').forEach(c=>c.setAttribute('aria-label',c.dataset['aria'+(LANG==='en'?'En':'Es')]));
+  $('stepnav').setAttribute('aria-label',T('Fases','Phases'));
+  if(!RT.running){rtInstr();rtCount();}rtUpdate();p2read();p3segs();p4segs();p4calc();renderStepper();go(cur);}
+$('lang').addEventListener('click',e=>{const b=e.target.closest('button');if(b&&b.dataset.v!==LANG&&!RT.running)applyLang(b.dataset.v);});
+function loop(){switch(cur){case 0:p1draw();break;case 1:p2draw();if($('p2-deep').open)p2bdraw();break;case 2:p3draw();break;case 3:p4draw();break;}requestAnimationFrame(loop);}
+readColors();$('p3-n-v').textContent='15 %';
+let lang0='es';try{lang0=localStorage.getItem('don-lang')||(/^es/i.test(navigator.language||'es')?'es':'en');}catch(e){}
+applyLang(lang0);
+const h0=/^#fase(\d)$/.exec(location.hash);go(h0?(+h0[1]-1):0);
+requestAnimationFrame(loop);
+</script>
+
+</body>
+</html>

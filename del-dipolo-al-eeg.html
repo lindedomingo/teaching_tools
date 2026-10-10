@@ -1,0 +1,1158 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Del dipolo al EEG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a lab bench — the stage (canvas) on the left, the lab notebook (explanation + controls) on the right; a stepper on top, transport bar at the bottom. */
+:root{
+  --bg:#EEF1F4; --surface:#FFFFFF; --surface-2:#F6F8FA; --ink:#16202A; --muted:#566473; --line:#D3DAE2;
+  --accent:#A86400; --accent-soft:#F6E7CF; --pos:#C0392B; --neg:#2361AE; --cell:#7A4E9C;
+  --cortex:#EADFEF; --white:#F7F3F9; --csf:#D7ECF3; --bone:#EEE4CC; --scalp:#F1D8CA; --grid:#E3E8ED;
+  --f-display:"Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D1318; --surface:#141C23; --surface-2:#19232C; --ink:#E3E9EF; --muted:#94A2B0; --line:#2A3641;
+  --accent:#E5A43C; --accent-soft:#3A2C14; --pos:#F07463; --neg:#64A0EE; --cell:#B993DE;
+  --cortex:#2B2333; --white:#1F1A26; --csf:#122C36; --bone:#3A3326; --scalp:#3B2B25; --grid:#222D37; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D1318; --surface:#141C23; --surface-2:#19232C; --ink:#E3E9EF; --muted:#94A2B0; --line:#2A3641;
+  --accent:#E5A43C; --accent-soft:#3A2C14; --pos:#F07463; --neg:#64A0EE; --cell:#B993DE;
+  --cortex:#2B2333; --white:#1F1A26; --csf:#122C36; --bone:#3A3326; --scalp:#3B2B25; --grid:#222D37; color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;padding-inline:clamp(16px,3vw,36px);padding-block:20px 0}
+.app{max-width:1360px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.12}
+p{margin:0}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* header */
+.top{display:flex;flex-direction:column;gap:14px}
+.brand{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 20px}
+.kicker{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-size:clamp(28px,4vw,44px);font-weight:800;letter-spacing:-.01em}
+h1 em{font-style:normal;color:var(--accent)}
+.stepper-wrap{overflow-x:auto;margin-inline:-4px;padding:4px}
+#lang{flex:none}#lang button{padding:6px 12px;font-size:13px}
+.stepper{list-style:none;margin:0;padding:0;display:flex;gap:6px;min-width:max-content}
+.stepper button{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px 6px 6px;cursor:pointer;font-size:14px;color:var(--muted);transition:background .15s,color .15s,border-color .15s}
+.stepper button .n{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--surface-2);font-family:var(--f-mono);font-size:12px;font-weight:600;color:var(--ink)}
+.stepper button[aria-current="step"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.stepper button[aria-current="step"] .n{background:var(--accent);color:#fff}
+.stepper button.done .n{background:var(--accent-soft);color:var(--accent)}
+.stepper button:hover{border-color:var(--muted)}
+
+/* phase layout */
+.phase{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr);gap:18px;align-items:start}
+.viz{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.viz canvas{display:block;width:100%;max-width:100%;touch-action:none}
+.viz .cap{font-size:13px;color:var(--muted);padding-inline:4px}
+.panel{display:flex;flex-direction:column;gap:16px;min-width:0}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:600}
+.panel h2{font-size:clamp(22px,2.4vw,30px);font-weight:700;margin-top:4px}
+.lead{color:var(--ink);max-width:62ch}
+.lead b{font-weight:700}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.box h3{font-size:14px;font-family:var(--f-mono);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+
+/* controls */
+.ctl{display:flex;flex-direction:column;gap:4px}
+.ctl .row{display:flex;justify-content:space-between;gap:10px;align-items:baseline;font-size:14px}
+.ctl output,.mono{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums}
+.ctl .hint{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}
+input[type=range]{width:100%;accent-color:var(--accent);margin:2px 0}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:var(--surface);padding:7px 12px;font-size:14px;cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+.chk input{accent-color:var(--accent);width:16px;height:16px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:14px}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.btn.primary:hover{filter:brightness(1.07)}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:4px 6px 4px 12px;font-size:13px;font-family:var(--f-mono);background:var(--surface);cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.chip .x{border:0;background:transparent;cursor:pointer;width:22px;height:22px;border-radius:50%;color:var(--muted);font-size:15px;line-height:1}
+.chip .x:hover{background:var(--surface-2);color:var(--pos)}
+.preset{border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;text-align:left}
+.preset:hover{border-color:var(--accent)}
+
+.observe{background:var(--accent-soft);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.observe h3{font-size:13px;font-family:var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.observe ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:15px}
+details.think{border:1px dashed var(--muted);border-radius:12px;padding:12px 16px}
+details.think summary{cursor:pointer;font-weight:700;list-style:none;display:flex;gap:10px;align-items:baseline}
+details.think summary::before{content:"?";font-family:var(--f-mono);display:grid;place-items:center;flex:none;width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--bg);font-size:12px}
+details.think summary::-webkit-details-marker{display:none}
+details.think p{margin-top:10px;color:var(--ink)}
+details.think[open] summary{color:var(--muted)}
+
+table.rules{border-collapse:collapse;width:100%;font-size:14px}
+table.rules th,table.rules td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}
+table.rules th{font-family:var(--f-mono);font-weight:600;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+table.rules tr.on td{background:var(--accent-soft);font-weight:700}
+.sgn{font-family:var(--f-mono);font-weight:700}
+.sgn.p{color:var(--pos)} .sgn.n{color:var(--neg)}
+
+.readouts{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.ro{background:var(--surface-2);border-radius:8px;padding:8px 12px}
+.ro .k{font-size:12px;color:var(--muted)}
+.ro .v{font-family:var(--f-mono);font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.bar{height:10px;border-radius:5px;background:var(--grid);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .12s}
+.bar.ink i{background:var(--cell)}
+.note{font-size:13px;color:var(--muted);max-width:62ch}
+
+/* lab */
+.labgrid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:12px;align-items:start}
+.labgrid .side{display:flex;flex-direction:column;gap:10px;min-width:0}
+.cbar{display:flex;flex-direction:column;gap:2px}
+.cbar canvas{height:14px;border-radius:3px}
+.cbar .lbl{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:11.5px;color:var(--muted)}
+.hover{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);min-height:1.5em}
+.duel{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.duel h3{font-size:14px;text-align:center;font-family:var(--f-mono);font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.score{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;background:var(--surface-2);border-radius:10px;padding:10px 14px}
+.score .big{font-family:var(--f-mono);font-size:28px;font-weight:600}
+.score .verdict{font-weight:700}
+.score .bar{flex:1 1 160px}
+.cards{display:grid;gap:8px}
+.card{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:10px 12px;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:2px}
+.card b{font-family:var(--f-display);font-size:16px}
+.card span{font-size:13.5px;color:var(--muted)}
+.card[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--accent-soft)}
+
+/* transport */
+.transport{position:sticky;bottom:0;z-index:5;margin-inline:calc(-1 * clamp(16px,3vw,36px));padding:10px clamp(16px,3vw,36px) calc(10px + env(safe-area-inset-bottom,0px));background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-top:1px solid var(--line)}
+.transport .in{max-width:1360px;margin:0 auto;display:flex;align-items:center;gap:10px;justify-content:space-between}
+.transport .mid{display:flex;align-items:center;gap:12px;min-width:0}
+.prog{font-family:var(--f-mono);font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn.nav{font-weight:700;padding:10px 18px}
+.btn.next{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+footer.cred{font-size:12.5px;color:var(--muted);padding-block:6px 14px}
+
+@media (max-width:980px){.phase{grid-template-columns:minmax(0,1fr)}.labgrid{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:560px){.duel{grid-template-columns:1fr}.btn.nav{padding:10px 12px}.prog{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div>
+        <div class="kicker">Neurociencia Cognitiva · Bloque 3 · Técnicas electrofisiológicas</div>
+        <h1>¿De dónde sale la señal del <em>EEG</em>?</h1>
+      </div>
+      <div class="seg" id="lang" role="group" aria-label="Idioma / Language"><button data-v="es" aria-pressed="true" lang="es">Español</button><button data-v="en" aria-pressed="false" lang="en">English</button></div>
+    </div>
+    <nav class="stepper-wrap" aria-label="Fases">
+      <ol class="stepper" id="stepper"></ol>
+    </nav>
+  </header>
+
+  <!-- ============ FASE 1 ============ -->
+  <section class="phase" data-title="Qué mide el EEG" id="fase1">
+    <div class="viz">
+      <canvas id="p1s" style="aspect-ratio:16/7.2" aria-label="Animación: un potencial de acción viaja por el axón, se liberan neurotransmisores y aparece un potencial postsináptico en la dendrita"></canvas>
+      <canvas id="p1t" style="aspect-ratio:16/8" aria-label="Suma de potenciales de acción y de potenciales postsinápticos de muchas neuronas"></canvas>
+      <div class="cap">Arriba: una sinapsis a cámara lenta. Abajo: lo que suman <span id="p1-ncap">100</span> neuronas durante 300 ms, con tres descargas rítmicas (bandas sombreadas). Ambas trazas usan la misma escala vertical, fija (1 = la amplitud de un único PPS), para que se vea cómo cambia la amplitud.</div>
+    </div>
+    <div class="panel">
+      <div>
+        <div class="eyebrow">Fase 1 · Qué mide el EEG</div>
+        <h2>Potenciales de acción frente a potenciales postsinápticos</h2>
+      </div>
+      <p class="lead">Las neuronas se comunican con <b>potenciales de acción</b> (PA) que recorren el axón. En la sinapsis, el PA libera neurotransmisores que generan <b>potenciales postsinápticos</b> (PPS), excitadores o inhibidores, en las dendritas de la neurona siguiente. El EEG recoge la suma de muchísimos eventos, pero no todos se suman igual de bien.</p>
+      <div class="box">
+        <h3>Controles</h3>
+        <div class="btns"><button class="btn primary" id="p1-fire">Enviar un potencial de acción</button></div>
+        <div class="ctl"><div class="row"><label for="p1-n">Neuronas activas</label><output id="p1-n-v">100</output></div>
+          <input type="range" id="p1-n" min="1" max="500" value="100"></div>
+        <div class="ctl"><div class="row"><label for="p1-sync">Sincronía entre neuronas</label><output id="p1-sync-v">80 %</output></div>
+          <input type="range" id="p1-sync" min="0" max="100" value="80">
+          <div class="hint"><span>dispersión temporal ~37 ms</span><span>~1,5 ms</span></div></div>
+        <div class="ctl"><div class="row"><span>Eje vertical (fijo)</span></div>
+          <div class="seg" id="p1-axis"><button data-v="50" aria-pressed="false">0–50</button><button data-v="150" aria-pressed="true">0–150</button><button data-v="500" aria-pressed="false">0–500</button></div></div>
+        <div class="readouts">
+          <div class="ro"><div class="k">Pico de la suma de PA</div><div class="v" id="p1-ap">–</div></div>
+          <div class="ro"><div class="k">Pico de la suma de PPS</div><div class="v" id="p1-psp">–</div></div>
+          <div class="ro"><div class="k">PPS / PA</div><div class="v" id="p1-ratio">–</div></div>
+        </div>
+      </div>
+      <div class="observe"><h3>Fíjate en</h3><ul>
+        <li>Un PA dura <b>~1 ms</b> y es bifásico; un PPS dura <b>10–100 ms</b>. Compara los dos dibujos en el mismo eje temporal.</li>
+        <li>Aunque las neuronas descarguen “a la vez”, un desfase de 2 ms basta para que los PA no coincidan y se cancelen. Los PPS se solapan y se suman.</li>
+        <li>Sube el número de neuronas: la suma de PPS crece en proporción a N; la de PA, mucho menos.</li>
+      </ul></div>
+      <details class="think"><summary>¿Por qué el EEG no registra los potenciales de acción?</summary>
+        <p>Porque son muy breves (~1 ms), locales y bifásicos, y los axones apuntan en direcciones variadas. Además, el campo de un PA decae con la distancia más rápido que el de un dipolo. Al sumar miles de neuronas, la fase positiva de una cae sobre la negativa o el silencio de otra, y se cancelan. Los PPS son lentos y sostenidos: con pequeñas diferencias temporales siguen solapándose. Por eso el EEG refleja sobre todo <b>potenciales postsinápticos sincronizados</b>.</p></details>
+    </div>
+  </section>
+
+  <!-- ============ FASE 2 ============ -->
+  <section class="phase" data-title="La piramidal como dipolo" id="fase2" hidden>
+    <div class="viz">
+      <canvas id="p2" style="aspect-ratio:16/12" aria-label="Neurona piramidal en las capas corticales con corrientes intracelulares y extracelulares"></canvas>
+      <div class="cap">Esquema de una neurona piramidal de la capa V. Los puntos muestran la corriente: dentro de la neurona (sobre la dendrita) y de vuelta por el espacio extracelular. La traza de la esquina es lo que registraría el electrodo (aquí, positivo hacia arriba; muchos laboratorios dibujan los ERP con el negativo hacia arriba).</div>
+    </div>
+    <div class="panel">
+      <div>
+        <div class="eyebrow">Fase 2 · La piramidal como dipolo</div>
+        <h2>Un sumidero, una fuente: así nace un dipolo</h2>
+      </div>
+      <p class="lead">Cuando un neurotransmisor excitador abre canales en la dendrita apical, <b>entran cargas positivas</b> (Na⁺). El espacio extracelular de ese punto queda negativo: es un <b>sumidero</b> de corriente (−). La corriente recorre el interior de la neurona y sale sobre todo cerca del soma, que actúa como <b>fuente</b> (+). Dos polos de signo opuesto separados en el espacio forman un <b>dipolo</b>.</p>
+      <div class="box">
+        <h3>Controles</h3>
+        <div class="ctl"><div class="row"><span>Tipo de sinapsis</span></div>
+          <div class="seg" id="p2-syn"><button data-v="exc" aria-pressed="true">Excitadora (PEPS)</button><button data-v="inh" aria-pressed="false">Inhibidora (PIPS)</button></div></div>
+        <div class="ctl"><div class="row"><span>Dónde llega la sinapsis</span></div>
+          <div class="seg" id="p2-loc"><button data-v="apical" aria-pressed="true">Dendrita apical (superficial)</button><button data-v="soma" aria-pressed="false">Junto al soma (profunda)</button></div></div>
+        <div class="btns"><button class="btn primary" id="p2-fire">Activar la sinapsis</button></div>
+        <label class="chk"><input type="checkbox" id="p2-auto" checked> <span>Repetir automáticamente</span></label>
+        <label class="chk"><input type="checkbox" id="p2-cur" checked> <span>Mostrar corrientes</span></label>
+        <label class="chk"><input type="checkbox" id="p2-dip" checked> <span>Mostrar el dipolo equivalente (flecha de − a +)</span></label>
+      </div>
+      <div class="box">
+        <h3>Polaridad en la superficie</h3>
+        <table class="rules"><thead><tr><th>Sinapsis</th><th>Localización</th><th>Superficie</th></tr></thead><tbody>
+          <tr id="r-exc-apical"><td>Excitadora</td><td>Apical</td><td><span class="sgn n">− negativa</span></td></tr>
+          <tr id="r-inh-apical"><td>Inhibidora</td><td>Apical</td><td><span class="sgn p">+ positiva</span></td></tr>
+          <tr id="r-exc-soma"><td>Excitadora</td><td>Junto al soma</td><td><span class="sgn p">+ positiva</span></td></tr>
+          <tr id="r-inh-soma"><td>Inhibidora</td><td>Junto al soma</td><td><span class="sgn n">− negativa</span></td></tr>
+        </tbody></table>
+      </div>
+      <div class="observe"><h3>Fíjate en</h3><ul>
+        <li>La corriente siempre forma un circuito cerrado: entra en un punto, viaja por dentro y vuelve por fuera.</li>
+        <li>El electrodo ve el polo que queda <b>más cerca de la superficie</b>.</li>
+        <li>Dos situaciones opuestas producen la misma polaridad: PEPS profundo y PIPS superficial dan ambos positividad.</li>
+      </ul></div>
+      <details class="think"><summary>Si registras una onda negativa en Cz, ¿sabes si las neuronas se excitaron o se inhibieron?</summary>
+        <p>No solo con la polaridad. Una negatividad en superficie es compatible con un PEPS en la dendrita apical y con un PIPS cerca del soma. Para interpretarla necesitas saber dónde llegan las sinapsis (anatomía de la vía) y combinarla con otras fuentes de información.</p></details>
+    </div>
+  </section>
+
+  <!-- ============ FASE 3 ============ -->
+  <section class="phase" data-title="Alineamiento y sincronía" id="fase3" hidden>
+    <div class="viz">
+      <canvas id="p3" style="aspect-ratio:16/10.5" aria-label="Población de neuronas con su dipolo neto y la señal resultante en el electrodo"></canvas>
+      <div class="cap">Cada neurona oscila (un ritmo alfa a cámara lenta): rojo cuando su dipolo apunta hacia la superficie, azul cuando apunta hacia dentro. A la derecha, la suma de todas las flechas. Abajo, la señal que llega al electrodo (solo cuenta la componente vertical).</div>
+    </div>
+    <div class="panel">
+      <div>
+        <div class="eyebrow">Fase 3 · Alineamiento y sincronía</div>
+        <h2>Miles de dipolos que tienen que ponerse de acuerdo</h2>
+      </div>
+      <p class="lead">El dipolo de una sola neurona es minúsculo. El EEG solo detecta actividad cuando <b>millones de piramidales vecinas</b>, colocadas en paralelo y perpendiculares a la superficie, reciben entradas <b>a la vez</b>. Se estima que hacen falta varios centímetros cuadrados de corteza activa de forma sincrónica para obtener una señal clara en el cuero cabelludo. Sus dipolos se suman como flechas: si apuntan igual y oscilan juntas, la flecha total crece; si no, se cancelan.</p>
+      <div class="box">
+        <h3>Controles</h3>
+        <div class="ctl"><div class="row"><span>Tipo de célula</span></div>
+          <div class="seg" id="p3-type"><button data-v="pyr" aria-pressed="true">Piramidales (campo abierto)</button><button data-v="star" aria-pressed="false">Estrelladas (campo cerrado)</button></div></div>
+        <div class="ctl"><div class="row"><label for="p3-n">Número de neuronas</label><output id="p3-n-v">40</output></div>
+          <input type="range" id="p3-n" min="4" max="80" value="40"></div>
+        <div class="ctl"><div class="row"><label for="p3-align">Dispersión de la orientación</label><output id="p3-align-v">±10°</output></div>
+          <input type="range" id="p3-align" min="0" max="180" value="10">
+          <div class="hint"><span>en empalizada</span><span>al azar</span></div></div>
+        <div class="ctl"><div class="row"><label for="p3-sync">Sincronía</label><output id="p3-sync-v">90 %</output></div>
+          <input type="range" id="p3-sync" min="0" max="100" value="90"></div>
+        <div class="readouts">
+          <div class="ro"><div class="k">Señal en el electrodo</div><div class="v" id="p3-amp">–</div><div class="bar"><i id="p3-bar"></i></div></div>
+          <div class="ro"><div class="k">Si fueran independientes (≈ 1/√N)</div><div class="v" id="p3-rand">–</div></div>
+        </div>
+      </div>
+      <div class="observe"><h3>Fíjate en</h3><ul>
+        <li>Con orientación al azar (±180°) la flecha neta casi desaparece, aunque todas las neuronas estén activas.</li>
+        <li>Las estrelladas tienen dendritas en todas direcciones: sus corrientes se cierran sobre sí mismas y no generan señal lejana.</li>
+        <li>Sin sincronía, la señal total crece solo como √N; con sincronía, como N. Con millones de neuronas, la diferencia es enorme.</li>
+      </ul></div>
+      <details class="think"><summary>¿Por qué el EEG apenas registra estructuras como el tálamo o los ganglios basales?</summary>
+        <p>Por su profundidad, y sobre todo porque sus neuronas no forman capas paralelas: generan campos cerrados cuyas corrientes se cancelan. La corteza, con sus piramidales en empalizada, es la gran fuente del EEG.</p></details>
+    </div>
+  </section>
+
+  <!-- ============ FASE 4 ============ -->
+  <section class="phase" data-title="Giros y surcos" id="fase4" hidden>
+    <div class="viz">
+      <canvas id="p4" style="aspect-ratio:16/11" aria-label="Corte de la corteza plegada con giros y surcos, la región activa y el potencial en el cuero cabelludo"></canvas>
+      <div class="cap">Corte de corteza plegada. Las piramidales (trazos) son perpendiculares a la superficie cortical. Haz clic sobre la corteza o usa el control para mover la región activa. Arriba, el voltaje a lo largo del cuero cabelludo, con el eje vertical fijo para comparar amplitudes (u.a. = unidades arbitrarias de este modelo).</div>
+    </div>
+    <div class="panel">
+      <div>
+        <div class="eyebrow">Fase 4 · Giros y surcos</div>
+        <h2>La orientación de las neuronas importa</h2>
+      </div>
+      <p class="lead">Las piramidales se disponen perpendiculares a la superficie cortical, pero la corteza está plegada. En la <b>cresta de un giro</b> su dipolo apunta hacia el cuero cabelludo (<b>radial</b>). En la <b>pared de un surco</b> apunta hacia un lado (<b>tangencial</b>). En el <b>fondo del surco</b> vuelve a ser radial, pero más lejos de los electrodos.</p>
+      <div class="box">
+        <h3>Controles</h3>
+        <div class="btns" id="p4-presets">
+          <button class="preset" data-s="crest">Cresta de un giro</button>
+          <button class="preset" data-s="wall">Pared de un surco</button>
+          <button class="preset" data-s="fundus">Fondo de un surco</button>
+          <button class="preset" data-s="both">Las dos paredes a la vez</button>
+        </div>
+        <div class="ctl"><div class="row"><label for="p4-pos">Posición de la región activa</label><output id="p4-pos-v">–</output></div>
+          <input type="range" id="p4-pos" min="0" max="1000" value="250"></div>
+        <div class="ctl"><div class="row"><label for="p4-wid">Extensión de la región activa</label><output id="p4-wid-v">–</output></div>
+          <input type="range" id="p4-wid" min="10" max="300" value="50"></div>
+        <div class="readouts">
+          <div class="ro"><div class="k">Señal EEG (pico en el cuero cabelludo)</div><div class="v" id="p4-eeg">–</div><div class="bar"><i id="p4-eeg-b"></i></div></div>
+          <div class="ro"><div class="k">Componente tangencial (lo que ve la MEG)</div><div class="v" id="p4-meg">–</div><div class="bar ink"><i id="p4-meg-b"></i></div></div>
+        </div>
+        <p class="note">Porcentajes relativos a la misma región activa colocada en la cresta de un giro (EEG) o perfectamente tangencial (MEG).</p>
+      </div>
+      <div class="observe"><h3>Fíjate en</h3><ul>
+        <li><b>Radial</b>: un único máximo justo encima de la fuente. <b>Tangencial</b>: un polo positivo y otro negativo a los lados, con cero encima de la fuente.</li>
+        <li>Si se activan las dos paredes de un surco, sus dipolos apuntan en sentidos opuestos y se cancelan: la flecha discontinua (suma) casi desaparece.</li>
+        <li>La MEG es casi ciega a las fuentes radiales y sensible a las tangenciales (y pierde sensibilidad con la profundidad más rápido que el EEG): por eso EEG y MEG son complementarias.</li>
+      </ul></div>
+      <details class="think"><summary>Un dipolo tangencial da un máximo positivo y un mínimo negativo. ¿Dónde está la fuente?</summary>
+        <p>Entre ambos, bajo la línea de voltaje cero, no bajo el máximo. Por eso leer una topografía como “la actividad está donde el voltaje es mayor” puede llevar a conclusiones equivocadas.</p></details>
+    </div>
+  </section>
+
+  <!-- ============ FASE 5 ============ -->
+  <section class="phase" data-title="Atravesar el cráneo" id="fase5" hidden>
+    <div class="viz">
+      <canvas id="p5" style="aspect-ratio:16/12.5" aria-label="Corte de la cabeza con capas y comparación del voltaje en la corteza y en el cuero cabelludo"></canvas>
+      <div class="cap">Arriba: corte de la cabeza con sus capas (grosor exagerado para que se vean). El color dentro del cerebro indica el campo del dipolo. Puntos pequeños: contactos sobre la corteza (ECoG); discos dorados: electrodos de EEG. Abajo: voltaje en cada superficie según el ángulo desde la fuente, con el eje vertical fijo (elige la escala en los controles).</div>
+    </div>
+    <div class="panel">
+      <div>
+        <div class="eyebrow">Fase 5 · Del córtex al cuero cabelludo</div>
+        <h2>Atenuado y emborronado, pero reconocible</h2>
+      </div>
+      <p class="lead">El campo eléctrico atraviesa corteza → líquido cefalorraquídeo → hueso → cuero cabelludo. El <b>cráneo</b> conduce la corriente mucho peor que el cerebro (entre unas 15 y 80 veces peor, según las estimaciones), así que la señal llega <b>atenuada</b> y <b>difuminada</b>: el patrón general del dipolo se conserva, pero se ensancha.</p>
+      <div class="box">
+        <h3>Controles</h3>
+        <div class="ctl"><div class="row"><label for="p5-depth">Profundidad de la fuente (desde el cuero cabelludo)</label><output id="p5-depth-v">25 mm</output></div>
+          <input type="range" id="p5-depth" min="20" max="55" value="25"></div>
+        <div class="ctl"><div class="row"><label for="p5-inc">Orientación</label><output id="p5-inc-v">0° · radial</output></div>
+          <input type="range" id="p5-inc" min="0" max="180" value="0">
+          <div class="hint"><span>radial hacia fuera</span><span>tangencial</span><span>radial hacia dentro</span></div></div>
+        <div class="ctl"><div class="row"><label for="p5-skull">Resistencia del cráneo</label><output id="p5-skull-v">–</output></div>
+          <input type="range" id="p5-skull" min="0" max="100" value="45">
+          <div class="hint"><span>sin cráneo</span><span>muy resistivo</span></div></div>
+        <div class="ctl"><div class="row"><span>Eje vertical (fijo)</span></div>
+          <div class="seg" id="p5-axis"><button data-v="25" aria-pressed="false">±25 µV</button><button data-v="100" aria-pressed="true">±100 µV</button><button data-v="300" aria-pressed="false">±300 µV</button></div></div>
+        <label class="chk"><input type="checkbox" id="p5-norm"> <span>Normalizar las curvas para comparar su anchura</span></label>
+        <div class="readouts">
+          <div class="ro"><div class="k">Pico en la corteza (ECoG)</div><div class="v" id="p5-ecog">–</div></div>
+          <div class="ro"><div class="k">Pico en el cuero cabelludo (EEG)</div><div class="v" id="p5-eeg">–</div></div>
+          <div class="ro"><div class="k">Anchura a media altura</div><div class="v" id="p5-wid" style="font-size:15px">–</div></div>
+        </div>
+      </div>
+      <div class="observe"><h3>Fíjate en</h3><ul>
+        <li>Con el mismo dipolo, el voltaje en el cuero cabelludo es muchas veces menor que sobre la corteza.</li>
+        <li>Activa “Normalizar”: la curva del EEG es más ancha. Un electrodo recoge actividad de fuentes que no están justo debajo.</li>
+        <li>Aumenta la resistencia del cráneo: más difuminado. Aumenta la profundidad: menos amplitud y más anchura.</li>
+      </ul></div>
+      <details class="think"><summary>¿Por qué el iEEG o la ECoG captan gamma alta (&gt;60 Hz) y el EEG apenas?</summary>
+        <p>La actividad de alta frecuencia suele ser muy local (parches pequeños de corteza). El cráneo actúa como un filtro espacial paso bajo: los patrones finos se difuminan y su amplitud en el cuero cabelludo cae por debajo del ruido.</p></details>
+    </div>
+  </section>
+
+  <!-- ============ FASE 6 ============ -->
+  <section class="phase" data-title="Laboratorio de dipolos" id="fase6" hidden>
+    <div class="viz">
+      <div class="labgrid">
+        <div>
+          <canvas id="p6map" style="aspect-ratio:1/1" aria-label="Topografía del EEG vista desde arriba, nariz hacia arriba"></canvas>
+          <div class="hover" id="p6-hover">Pasa el cursor por el mapa para leer el voltaje.</div>
+        </div>
+        <div class="side">
+          <canvas id="p6side" style="aspect-ratio:1/1" aria-label="Corte de la cabeza que pasa por el dipolo seleccionado"></canvas>
+          <div class="cbar"><canvas id="p6cbar"></canvas><div class="lbl"><span id="p6-cmin">−10 µV</span><span>0</span><span id="p6-cmax">+10 µV</span></div></div>
+          <div class="mono" id="p6-decomp" style="color:var(--muted)"></div>
+        </div>
+      </div>
+      <div class="cap">Vista superior (nariz arriba, oreja izquierda a la izquierda). Rojo: voltaje positivo; azul: negativo. Sobre el mapa, cada dipolo se dibuja con una flecha (su parte tangencial) y un círculo (su parte radial: ● hacia fuera, × hacia dentro). Arrastra un dipolo para moverlo, o haz clic en un punto vacío para llevar allí el seleccionado. A la derecha, un corte de la cabeza que pasa por el dipolo seleccionado.</div>
+    </div>
+    <div class="panel">
+      <div>
+        <div class="eyebrow">Fase 6 · Laboratorio de dipolos</div>
+        <h2>Construye tus propios dipolos</h2>
+      </div>
+      <p class="lead">Este es el <b>problema directo</b>: si conocemos la fuente (posición, orientación y amplitud) podemos calcular la topografía que produce, y la solución es única. Añade dipolos, muévelos y gira su orientación para ver cómo cambia el mapa.</p>
+      <div class="box">
+        <h3>Ejemplos</h3>
+        <div class="btns" id="p6-presets"></div>
+      </div>
+      <div class="box" id="p6-editor"></div>
+      <div class="box">
+        <h3>Visualización</h3>
+        <label class="chk"><input type="checkbox" id="p6-auto"> <span>Escala de color automática</span></label>
+        <div class="ctl" id="p6-scale-wrap"><div class="row"><label for="p6-scale">Escala de color fija</label><output id="p6-scale-v">±10 µV</output></div>
+          <input type="range" id="p6-scale" min="2" max="40" value="10"></div>
+        <label class="chk"><input type="checkbox" id="p6-skull" checked> <span>Incluir el difuminado del cráneo</span></label>
+        <label class="chk"><input type="checkbox" id="p6-cont" checked> <span>Mostrar isolíneas</span></label>
+        <label class="chk"><input type="checkbox" id="p6-elec" checked> <span>Mostrar electrodos 10-20</span></label>
+      </div>
+      <div class="observe"><h3>Fíjate en</h3><ul>
+        <li>Inclinación 0° (radial hacia fuera): máximo positivo encima de la fuente. 180°: mínimo negativo. 90° (tangencial): un par positivo-negativo.</li>
+        <li>Aumenta la profundidad: el mapa se vuelve más ancho y más débil.</li>
+        <li>Carga “Paredes opuestas de un surco” y apaga uno de los dos dipolos con la × para ver cuánto se cancelaban.</li>
+      </ul></div>
+      <p class="note">Modelo: esfera conductora homogénea de 9 cm de radio, con un filtro que imita el difuminado del cráneo. Los voltajes se calculan con una referencia ideal (en el infinito); en un registro real, cambiar la referencia desplaza todos los valores y puede cambiar mucho el aspecto del mapa. Los ejemplos de ERP son simplificaciones: el P300, por ejemplo, tiene generadores distribuidos. Los análisis reales usan modelos de cabeza de varias capas (BEM o FEM), a menudo a partir de la resonancia del participante.</p>
+    </div>
+  </section>
+
+  <!-- ============ FASE 7 ============ -->
+  <section class="phase" data-title="El problema inverso" id="fase7" hidden>
+    <div class="viz">
+      <div class="duel">
+        <div><h3>Topografía objetivo</h3><canvas id="p7tgt" style="aspect-ratio:1/1" aria-label="Topografía objetivo"></canvas></div>
+        <div><h3>Tus dipolos</h3><canvas id="p7usr" style="aspect-ratio:1/1" aria-label="Topografía generada por tus dipolos"></canvas></div>
+      </div>
+      <div class="score">
+        <div><div class="k note">Parecido de forma (r)</div><div class="big" id="p7-r">–</div></div>
+        <div class="bar"><i id="p7-bar"></i></div>
+        <div><div class="verdict" id="p7-verdict">–</div><div class="note" id="p7-sub">–</div></div>
+      </div>
+      <div class="hover" id="p7-hover"></div>
+      <div class="cap">Cada mapa usa su propia escala de color, para comparar la forma. “r” es la correlación entre los dos mapas (1 = idénticos en forma). Entre paréntesis, la misma correlación usando solo los 19 electrodos del sistema 10-20.</div>
+    </div>
+    <div class="panel">
+      <div>
+        <div class="eyebrow">Fase 7 · El problema inverso</div>
+        <h2>Mapas iguales, fuentes distintas</h2>
+      </div>
+      <p class="lead">Ahora al revés: tienes una topografía y quieres saber qué la produjo. Este es el <b>problema inverso</b>, y no tiene una única solución: combinaciones de dipolos muy diferentes pueden producir mapas casi idénticos. Intenta imitar el objetivo moviendo tus dipolos y luego mira la solución alternativa.</p>
+      <div class="box">
+        <h3>Elige un reto</h3>
+        <div class="cards" id="p7-cards"></div>
+        <div class="btns">
+          <button class="btn primary" id="p7-alt">Ver una solución alternativa</button>
+          <button class="btn" id="p7-reveal">Revelar la fuente del objetivo</button>
+          <button class="btn" id="p7-reset">Reiniciar mis dipolos</button>
+        </div>
+        <p class="note" id="p7-explain"></p>
+      </div>
+      <div class="box" id="p7-editor"></div>
+      <div class="observe"><h3>Cómo se aborda en la práctica</h3><ul>
+        <li><b>Dipolos equivalentes</b>: se supone que la actividad viene de pocas fuentes focales (útil en epilepsia o en algunos ERP).</li>
+        <li><b>Modelos distribuidos</b>: miles de fuentes sobre la corteza con una restricción. MNE elige la solución de menor energía total; LORETA, la distribución más suave; sLORETA estandariza la estimación de mínima norma; el beamforming usa filtros espaciales que aíslan cada punto.</li>
+        <li>La elección de la restricción decide la respuesta. Por eso se combina con la anatomía (resonancia individual) y con otras técnicas (fMRI, MEG).</li>
+      </ul></div>
+      <details class="think"><summary>Si una solución con 1 dipolo y otra con 7 explican el mapa igual de bien, ¿cuál eliges?</summary>
+        <p>Los datos por sí solos no pueden decidirlo. Depende de lo que asumas: el modelo de dipolo equivalente prefiere pocas fuentes focales; MNE prefiere la menor energía total; LORETA, la distribución más suave. La topografía no revela la fuente directamente: es una pista que hay que interpretar con conocimiento previo.</p></details>
+    </div>
+  </section>
+
+  <div class="transport">
+    <div class="in">
+      <button class="btn nav" id="prev">← Anterior</button>
+      <div class="mid">
+        <button class="btn" id="play" aria-pressed="true">Pausar animación</button>
+        <span class="prog" id="prog">Fase 1 de 7</span>
+      </div>
+      <button class="btn nav next" id="next">Siguiente →</button>
+    </div>
+  </div>
+  <footer class="cred">Material interactivo de apoyo · Neurociencia Cognitiva, Grado en Psicología. Teclas ← → para cambiar de fase.</footer>
+</div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const D2R=Math.PI/180;
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let LANG='es';const T=(es,en)=>LANG==='en'?en:es;
+const fmt=(x,d=1)=>x.toLocaleString(LANG==='en'?'en-GB':'es-ES',{minimumFractionDigits:d,maximumFractionDigits:d});
+
+/* ---------- colours from tokens ---------- */
+let C={};
+const CANV=[];
+function readColors(){
+  const cs=getComputedStyle(document.documentElement);
+  ['bg','surface','surface-2','ink','muted','line','accent','accent-soft','pos','neg','cell','cortex','white','csf','bone','scalp','grid'].forEach(k=>C[k]=cs.getPropertyValue('--'+k).trim());
+  CANV.forEach(o=>o.dirty=true); Object.values(DIRTY).forEach(f=>f());
+}
+const DIRTY={};
+function hex(c){c=c.replace('#','');if(c.length===3)c=c.split('').map(x=>x+x).join('');const n=parseInt(c,16);return[(n>>16)&255,(n>>8)&255,n&255];}
+function rgba(c,a){const[r,g,b]=hex(c);return`rgba(${r},${g},${b},${a})`;}
+function mix(c1,c2,t){const a=hex(c1),b=hex(c2);return`rgb(${a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(',')})`;}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',readColors);
+new MutationObserver(readColors).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+/* diverging colour map (RdBu) */
+const DIV=[[-1,[33,82,160]],[-.6,[67,147,195]],[-.25,[171,212,232]],[0,[247,247,247]],[.25,[250,200,176]],[.6,[222,110,82]],[1,[165,22,40]]];
+function divRGB(t){t=Math.max(-1,Math.min(1,t));for(let i=1;i<DIV.length;i++){if(t<=DIV[i][0]){const[a,ca]=DIV[i-1],[b,cb]=DIV[i];const u=(t-a)/(b-a);return[ca[0]+(cb[0]-ca[0])*u,ca[1]+(cb[1]-ca[1])*u,ca[2]+(cb[2]-ca[2])*u];}}return DIV[DIV.length-1][1];}
+const divCss=t=>{const c=divRGB(t);return`rgb(${c.map(Math.round).join(',')})`;};
+
+/* ---------- canvas helper ---------- */
+function cv(id){
+  const c=$(id),o={c,ctx:c.getContext('2d'),w:0,h:0,dirty:true};
+  const fit=()=>{const r=c.getBoundingClientRect();if(r.width<2)return;const d=Math.min(2,window.devicePixelRatio||1);o.w=r.width;o.h=r.height;c.width=Math.round(r.width*d);c.height=Math.round(r.height*d);o.ctx.setTransform(d,0,0,d,0,0);o.dirty=true;};
+  new ResizeObserver(fit).observe(c);fit();CANV.push(o);return o;
+}
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function gauss(r){let u=0,v=0;while(u===0)u=r();v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function arrow(ctx,x0,y0,x1,y1,col,lw=2,hs=8){
+  const dx=x1-x0,dy=y1-y0,L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L;hs=Math.min(hs,L*.6);
+  ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=lw;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1-ux*hs*.7,y1-uy*hs*.7);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x1-ux*hs-uy*hs*.55,y1-uy*hs+ux*hs*.55);ctx.lineTo(x1-ux*hs+uy*hs*.55,y1-uy*hs-ux*hs*.55);ctx.closePath();ctx.fill();
+}
+function label(ctx,txt,x,y,{size=12,col=C.muted,align='left',base='alphabetic',font='mono',weight=400}={}){
+  ctx.font=`${weight} ${size}px ${font==='mono'?'"JetBrains Mono", ui-monospace, monospace':'"Atkinson Hyperlegible", system-ui, sans-serif'}`;
+  ctx.fillStyle=col;ctx.textAlign=align;ctx.textBaseline=base;ctx.fillText(txt,x,y);
+}
+function seg(id,cb){const el=$(id);el.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;el.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));cb(b.dataset.v);});}
+
+/* =====================================================================
+   FASE 1 · PA vs PPS
+   ===================================================================== */
+const P1={n:100,sync:80,t0:-10,ap:null,psp:null,axis:150};
+const p1s=cv('p1s'),p1t=cv('p1t');
+function p1compute(){
+  const r=mulberry(1234),dt=.25,M=1200,ap=new Float32Array(M),psp=new Float32Array(M);
+  const bursts=[45,145,245],sig=1.5+(1-P1.sync/100)*35,sa=.35;
+  for(let i=0;i<P1.n;i++){
+    const s=r()<.5?-1:1;
+    for(const b of bursts){
+      const t0=b+sig*gauss(r);
+      for(let k=Math.max(0,Math.floor((t0-2)/dt));k<Math.min(M,Math.ceil((t0+2)/dt));k++){const tt=k*dt-t0;ap[k]+=s*(-(tt/sa)*Math.exp(.5-tt*tt/(2*sa*sa)));}
+      for(let k=Math.max(0,Math.ceil(t0/dt));k<Math.min(M,Math.ceil((t0+90)/dt));k++){const tt=k*dt-t0;psp[k]+=(tt/10)*Math.exp(1-tt/10);}
+    }
+  }
+  P1.ap=ap;P1.psp=psp;
+  const ma=Math.max(...ap.map(Math.abs)),mp=Math.max(...psp);
+  $('p1-ap').textContent=fmt(ma,1);$('p1-psp').textContent=fmt(mp,1);$('p1-ratio').textContent='×'+fmt(mp/Math.max(ma,1e-6),0);
+  $('p1-ncap').textContent=P1.n;p1t.dirty=true;
+}
+function p1drawTraces(){
+  const o=p1t,ctx=o.ctx,w=o.w,h=o.h;if(!w)return;ctx.clearRect(0,0,w,h);
+  const L=50,R=w-12,TR=[[10,h*.47],[h*.53,h-26]];
+  const M=P1.axis,X=t=>L+(R-L)*t/300;
+  const sc=(TR[1][1]-TR[1][0])*.82/M; // same µV-per-pixel for both traces
+  [[P1.ap,T('Suma de potenciales de acción','Sum of action potentials'),C.ink],[P1.psp,T('Suma de potenciales postsinápticos','Sum of postsynaptic potentials'),C.cell]].forEach(([arr,name,col],j)=>{
+    const[y0,y1]=TR[j],mid=j===0?(y0+y1)/2:y1-(y1-y0)*.1,lo=y0+2,hi=y1-2;
+    ctx.fillStyle=rgba(C.accent,.08);[45,145,245].forEach(b=>ctx.fillRect(X(b-8),y0,X(b+30)-X(b-8),y1-y0));
+    const ticks=j===0?[-M*.4,M*.4]:[M/2,M];
+    ctx.lineWidth=1;for(const t of ticks){const yy=mid-t*sc;if(yy<lo-1||yy>hi+1)continue;ctx.strokeStyle=rgba(C.ink,.08);ctx.beginPath();ctx.moveTo(L,yy);ctx.lineTo(R,yy);ctx.stroke();label(ctx,(t<0?'−':'')+fmt(Math.abs(t),0),L-6,yy,{align:'right',base:'middle',size:10});}
+    ctx.strokeStyle=C.line;ctx.beginPath();ctx.moveTo(L,mid);ctx.lineTo(R,mid);ctx.stroke();label(ctx,'0',L-6,mid,{align:'right',base:'middle',size:10});
+    let clip=false;ctx.strokeStyle=col;ctx.lineWidth=1.6;ctx.beginPath();
+    for(let k=0;k<arr.length;k++){const x=X(k*.25);let y=mid-arr[k]*sc;if(y<lo){y=lo;clip=true;}if(y>hi){y=hi;clip=true;}k?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();
+    label(ctx,name,L+6,y0+14,{col,size:12.5,weight:600});
+    if(clip)label(ctx,T('↕ se sale del eje','↕ off the axis'),R,y0+14,{align:'right',col:C.accent,size:11.5,weight:600});
+  });
+  ctx.strokeStyle=C.line;ctx.beginPath();ctx.moveTo(L,h-24);ctx.lineTo(R,h-24);ctx.stroke();
+  for(let t=0;t<=300;t+=50){label(ctx,t+'',X(t),h-8,{align:'center',size:11});}
+  label(ctx,'ms',L-8,h-8,{align:'right',size:11});
+}
+function p1scheme(t){
+  const o=p1s,ctx=o.ctx,w=o.w,h=o.h;if(!w)return;ctx.clearRect(0,0,w,h);
+  if(t-P1.t0>3.6&&$('p1-fire'))P1.t0=t; const tc=t-P1.t0;
+  const y=h*.3,ax0=w*.13,ax1=w*.5,bx0=w*.565,bx1=w*.87;
+  // neuron A
+  ctx.strokeStyle=C.cell;ctx.lineWidth=3;ctx.lineCap='round';
+  for(let a=0;a<5;a++){const an=Math.PI*(.55+a*.22);ctx.beginPath();ctx.moveTo(ax0,y);ctx.lineTo(ax0+Math.cos(an)*h*.13,y-Math.sin(an)*h*.13*.8);ctx.stroke();}
+  ctx.beginPath();ctx.moveTo(ax0,y);ctx.lineTo(ax1,y);ctx.stroke();
+  ctx.fillStyle=C.cell;ctx.beginPath();ctx.arc(ax0,y,h*.055,0,7);ctx.fill();
+  ctx.beginPath();ctx.arc(ax1+h*.03,y,h*.035,0,7);ctx.fill();
+  // neuron B dendrite
+  const env=tc>1.05?((tc-1.05)/.45)*Math.exp(1-(tc-1.05)/.45):0;
+  ctx.lineWidth=5;ctx.strokeStyle=C.cell;ctx.beginPath();ctx.moveTo(bx0,y);ctx.lineTo(bx1,y);ctx.stroke();
+  if(env>0.01){const g=ctx.createLinearGradient(bx0,0,bx1,0);g.addColorStop(0,rgba(C.pos,Math.min(1,env)));g.addColorStop(1,rgba(C.pos,0));ctx.strokeStyle=g;ctx.lineWidth=5+9*env;ctx.beginPath();ctx.moveTo(bx0,y);ctx.lineTo(bx1,y);ctx.stroke();}
+  ctx.fillStyle=C.cell;ctx.beginPath();ctx.moveTo(bx1-4,y-h*.08);ctx.lineTo(bx1+h*.1,y);ctx.lineTo(bx1-4,y+h*.08);ctx.closePath();ctx.fill();
+  ctx.lineWidth=3;ctx.strokeStyle=C.cell;ctx.beginPath();ctx.moveTo(bx0+w*.08,y);ctx.lineTo(bx0+w*.11,y-h*.1);ctx.moveTo(bx0+w*.18,y);ctx.lineTo(bx0+w*.2,y+h*.1);ctx.stroke();
+  // AP
+  if(tc>=0&&tc<.95){const u=tc/.95,x=ax0+(ax1-ax0)*u;
+    const g=ctx.createRadialGradient(x,y,0,x,y,h*.08);g.addColorStop(0,rgba(C.accent,1));g.addColorStop(1,rgba(C.accent,0));ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,h*.08,0,7);ctx.fill();
+    label(ctx,T('potencial de acción','action potential'),x,y-h*.1,{align:'center',col:C.accent,weight:600,size:12});}
+  // vesicles
+  if(tc>.9&&tc<1.5){const u=(tc-.9)/.6;ctx.fillStyle=C.accent;for(let i=0;i<6;i++){const yy=y+(i-2.5)*h*.018,xx=ax1+h*.06+(bx0-ax1-h*.06)*Math.min(1,u*(1+i*.12));ctx.globalAlpha=1-u*.7;ctx.beginPath();ctx.arc(xx,yy,2.4,0,7);ctx.fill();}ctx.globalAlpha=1;}
+  if(env>.05)label(ctx,T('potencial postsináptico','postsynaptic potential'),(bx0+bx1)/2,y-h*.1,{align:'center',col:C.pos,weight:600,size:12});
+  label(ctx,T('Neurona presináptica','Presynaptic neuron'),ax0,y+h*.16,{size:11.5,align:'center'});
+  label(ctx,T('sinapsis','synapse'),(ax1+bx0)/2+h*.015,y-h*.13,{size:11.5,align:'center',col:C.accent});
+  label(ctx,T('Dendrita de la neurona postsináptica','Dendrite of the postsynaptic neuron'),(bx0+bx1)/2+w*.03,y+h*.16,{size:11.5,align:'center'});
+  // waveforms on same time axis
+  const wy0=h*.58,wy1=h*.9;
+  const panels=[[w*.06,w*.46,T('PA · ≈1 ms','AP · ≈1 ms'),tt=>{const s=.35,x=tt-12;return -(x/s)*Math.exp(.5-x*x/(2*s*s));},C.ink],[w*.54,w*.94,T('PPS · 10–100 ms','PSP · 10–100 ms'),tt=>{const x=tt-12;return x>0?(x/10)*Math.exp(1-x/10):0;},C.cell]];
+  for(const[x0,x1,name,f,col] of panels){
+    const mid=(wy0+wy1)/2+h*.04;ctx.strokeStyle=C.line;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x0,mid);ctx.lineTo(x1,mid);ctx.stroke();
+    ctx.strokeStyle=col;ctx.lineWidth=1.8;ctx.beginPath();for(let i=0;i<=600;i++){const tt=i*.1,x=x0+(x1-x0)*tt/60,yy=mid-f(tt)*(wy1-wy0)*.42;i?ctx.lineTo(x,yy):ctx.moveTo(x,yy);}ctx.stroke();
+    label(ctx,name,x0,wy0,{col,weight:600,size:12});
+    label(ctx,'0',x0,wy1+12,{size:10.5});label(ctx,'60 ms',x1,wy1+12,{size:10.5,align:'right'});
+  }
+}
+$('p1-n').addEventListener('input',e=>{P1.n=+e.target.value;$('p1-n-v').textContent=P1.n;p1compute();});
+$('p1-sync').addEventListener('input',e=>{P1.sync=+e.target.value;$('p1-sync-v').textContent=P1.sync+' %';p1compute();});
+seg('p1-axis',v=>{P1.axis=+v;p1t.dirty=true;});
+$('p1-fire').addEventListener('click',()=>{P1.t0=simT;if(!playing)setPlaying(true);});
+
+/* =====================================================================
+   FASE 2 · Pyramidal neuron as dipole
+   ===================================================================== */
+const P2={syn:'exc',loc:'apical',trig:0,trace:[]};
+const p2=cv('p2');
+seg('p2-syn',v=>{P2.syn=v;P2.trig=simT;p2rules();});
+seg('p2-loc',v=>{P2.loc=v;P2.trig=simT;p2rules();});
+$('p2-fire').addEventListener('click',()=>{P2.trig=simT;if(!playing)setPlaying(true);});
+function p2rules(){document.querySelectorAll('table.rules tr').forEach(r=>r.classList.toggle('on',r.id===`r-${P2.syn}-${P2.loc}`));}
+p2rules();
+function p2frame(t,dt){
+  const o=p2,ctx=o.ctx,w=o.w,h=o.h;if(!w)return;ctx.clearRect(0,0,w,h);
+  if($('p2-auto').checked&&t-P2.trig>3)P2.trig=t;
+  const x=t-P2.trig,tau=.45,env=x<0?0:(x/tau)*Math.exp(1-x/tau);
+  const top=h*.17,layers=[['I',.17,.25],['II/III',.25,.47],['IV',.47,.57],['V',.57,.79],['VI',.79,.97]];
+  // scalp / skull
+  ctx.fillStyle=C.scalp;ctx.fillRect(0,h*.07,w,h*.035);ctx.fillStyle=C.bone;ctx.fillRect(0,h*.105,w,h*.04);ctx.fillStyle=C.csf;ctx.fillRect(0,h*.145,w,h*.025);
+  label(ctx,T('cuero cabelludo · cráneo · LCR (simplificado)','scalp · skull · CSF (simplified)'),w-10,h*.093,{align:'right',size:10.5});
+  layers.forEach(([n,a,b],i)=>{ctx.fillStyle=i%2?C.cortex:mix(C.cortex,C.surface,.45);ctx.fillRect(0,h*a,w,h*(b-a));label(ctx,n,10,h*(a+b)/2,{base:'middle',size:12,weight:600,col:C.muted});});
+  label(ctx,T('capas corticales','cortical layers'),10,h*.985,{size:10.5,base:'bottom'});
+  const cx=w*.5,somaY=h*.68,apTop=h*.21;
+  // background neurons
+  ctx.globalAlpha=.22;[-.3,-.17,.17,.3].forEach(dx=>drawPyr(ctx,w*(.5+dx),somaY+(dx*31%7),apTop+h*.02,h,C.cell,.75));ctx.globalAlpha=1;
+  drawPyr(ctx,cx,somaY,apTop,h,C.cell,1);
+  const synY=P2.loc==='apical'?h*.24:h*.635, othY=P2.loc==='apical'?somaY+h*.02:h*.25;
+  const inward=P2.syn==='exc'; // inward current at synapse => sink at synapse
+  const synSign=inward?-1:1;
+  // synapse terminal
+  ctx.fillStyle=C.accent;ctx.beginPath();ctx.arc(cx-h*.045,synY,h*.017,0,7);ctx.fill();ctx.strokeStyle=C.accent;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx-h*.045,synY);ctx.lineTo(cx-w*.16,synY-h*.05);ctx.stroke();
+  label(ctx,inward?T('sinapsis excitadora','excitatory synapse'):T('sinapsis inhibidora','inhibitory synapse'),cx-w*.165,synY-h*.06,{align:'right',size:11.5,col:C.accent,weight:600});
+  // ions entering
+  if(env>.02){const ion=inward?'Na⁺':'Cl⁻';for(let i=0;i<4;i++){const ph=((t*1.3+i/4)%1);const xx=cx-h*.1+ph*h*.09,yy=synY+(i-1.5)*h*.014;ctx.globalAlpha=Math.min(1,env)*(1-ph*.5);label(ctx,ion,xx,yy,{size:10,col:inward?C.pos:C.neg,weight:600,base:'middle',align:'center'});}ctx.globalAlpha=1;}
+  // currents
+  if($('p2-cur').checked){
+    const rx=w*.2,midY=(synY+othY)/2,ry=Math.abs(othY-synY)/2;
+    ctx.setLineDash([3,5]);ctx.strokeStyle=rgba(C.ink,.25);ctx.lineWidth=1.2;
+    for(const sd of[-1,1]){ctx.beginPath();ctx.ellipse(cx,midY,rx,ry,0,-Math.PI/2,Math.PI/2,sd<0);ctx.stroke();}
+    ctx.setLineDash([]);
+    const N=34;for(let i=0;i<N;i++){
+      let u=((i/N)+t*.22)%1;if(!inward)u=1-u;
+      const side=i%2?1:-1;let px,py;
+      if(u<.35){const s=u/.35;px=cx;py=synY+(othY-synY)*s;}
+      else{const s=(u-.35)/.65,sg=othY>synY?1:-1;py=midY+sg*ry*Math.cos(Math.PI*s);px=cx+side*rx*Math.sin(Math.PI*s);}
+      ctx.fillStyle=u<.35?C.accent:C.ink;ctx.globalAlpha=Math.min(1,.12+env*1.1);ctx.beginPath();ctx.arc(px,py,u<.35?2.6:2.1,0,7);ctx.fill();
+    }ctx.globalAlpha=1;
+    label(ctx,T('corriente extracelular de retorno','extracellular return current'),cx+w*.21,midY,{size:10.5,base:'middle'});
+    label(ctx,T('corriente intracelular','intracellular current'),cx+h*.03,(synY+othY)/2-h*.04,{size:10.5,col:C.accent});
+  }
+  // poles
+  const poles=[[synY,synSign],[othY,-synSign]];
+  for(const[py,s] of poles){const col=s>0?C.pos:C.neg,R=h*.03+h*.02*env;
+    ctx.fillStyle=rgba(col,.15+.35*env);ctx.beginPath();ctx.arc(cx+h*.075,py,R,0,7);ctx.fill();
+    label(ctx,s>0?'+':'−',cx+h*.075,py+1,{align:'center',base:'middle',size:20,weight:700,col});
+    label(ctx,s>0?T('fuente','source'):T('sumidero','sink'),cx+h*.075+R+6,py,{size:11,base:'middle',col});}
+  // dipole arrow
+  const negY=synSign<0?synY:othY,posY=synSign<0?othY:synY;
+  if($('p2-dip').checked){const ax=cx-w*.3;ctx.globalAlpha=.35+.65*Math.min(1,env*1.2+.2);arrow(ctx,ax,negY,ax,posY,C.accent,4,14);ctx.globalAlpha=1;
+    label(ctx,T('dipolo','dipole'),ax-10,(negY+posY)/2,{align:'right',base:'middle',size:12,col:C.accent,weight:600});}
+  // electrode
+  const surf=Math.sign(posY<negY?1:-1); // sign of pole nearer to surface
+  const V=surf*env;
+  ctx.strokeStyle=C.muted;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(cx,h*.07);ctx.quadraticCurveTo(cx,h*.03,cx+w*.12,h*.03);ctx.stroke();
+  ctx.fillStyle=C.accent;ctx.beginPath();ctx.ellipse(cx,h*.07,h*.03,h*.012,0,0,7);ctx.fill();
+  label(ctx,T('electrodo','electrode'),cx-h*.04,h*.055,{align:'right',size:11});
+  // trace box
+  P2.trace.push(V);if(P2.trace.length>260)P2.trace.shift();
+  const bx=w*.735,by=h*.185,bw=w*.25,bh=h*.17;
+  ctx.fillStyle=rgba(C.surface,.92);ctx.strokeStyle=C.line;ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(bx,by,bw,bh,6);ctx.fill();ctx.stroke();
+  const mid=by+bh/2;ctx.strokeStyle=C.line;ctx.beginPath();ctx.moveTo(bx+6,mid);ctx.lineTo(bx+bw-6,mid);ctx.stroke();
+  ctx.strokeStyle=C.ink;ctx.lineWidth=1.8;ctx.beginPath();P2.trace.forEach((v,i)=>{const xx=bx+6+(bw-12)*i/259,yy=mid-v*bh*.38;i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);});ctx.stroke();
+  label(ctx,T('voltaje en el electrodo','electrode voltage'),bx+8,by+14,{size:10.5});label(ctx,'+',bx+bw-12,by+16,{size:12,col:C.pos,weight:700});label(ctx,'−',bx+bw-12,by+bh-6,{size:12,col:C.neg,weight:700});
+  // caption
+  const txt=LANG==='en'?`${inward?'EPSP':'IPSP'} ${P2.loc==='apical'?'on the apical dendrite':'near the soma'} → ${surf>0?'positive':'negative'} pole at the surface → ${surf>0?'positive':'negative'} deflection`:`${inward?'PEPS':'PIPS'} ${P2.loc==='apical'?'en la dendrita apical':'junto al soma'} → polo ${surf>0?'positivo':'negativo'} en superficie → deflexión ${surf>0?'positiva':'negativa'}`;
+  ctx.fillStyle=rgba(C.surface,.9);ctx.font='600 13px "Atkinson Hyperlegible", system-ui, sans-serif';const tw=ctx.measureText(txt).width;
+  ctx.fillRect(w/2-tw/2-10,h*.915-12,tw+20,24);label(ctx,txt,w/2,h*.915,{align:'center',base:'middle',size:13,font:'body',weight:700,col:surf>0?C.pos:C.neg});
+}
+function drawPyr(ctx,x,somaY,apTop,h,col,s){
+  ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineCap='round';
+  ctx.lineWidth=5*s;ctx.beginPath();ctx.moveTo(x,somaY);ctx.lineTo(x,apTop+h*.03);ctx.stroke();
+  ctx.lineWidth=2.5*s;[[-1,.04],[1,.05],[-1,.11],[1,.12]].forEach(([d,o])=>{ctx.beginPath();ctx.moveTo(x,apTop+h*o);ctx.quadraticCurveTo(x+d*h*.04,apTop+h*(o-.02),x+d*h*.08,apTop+h*(o-.03));ctx.stroke();});
+  ctx.beginPath();ctx.moveTo(x,apTop+h*.03);ctx.lineTo(x-h*.03,apTop);ctx.moveTo(x,apTop+h*.03);ctx.lineTo(x+h*.03,apTop);ctx.stroke();
+  ctx.lineWidth=2*s;[[-1,.3],[-1,.05],[1,.08],[1,.28]].forEach(([d,a])=>{ctx.beginPath();ctx.moveTo(x+d*h*.02,somaY+h*.02);ctx.lineTo(x+d*h*.09,somaY+h*(.06+a*.2));ctx.stroke();});
+  ctx.lineWidth=1.5*s;ctx.beginPath();ctx.moveTo(x,somaY+h*.03);ctx.lineTo(x,h*.97);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x,somaY-h*.045);ctx.lineTo(x+h*.033,somaY+h*.03);ctx.lineTo(x-h*.033,somaY+h*.03);ctx.closePath();ctx.fill();
+}
+
+/* =====================================================================
+   FASE 3 · alignment & synchrony
+   ===================================================================== */
+const P3={type:'pyr',n:40,align:10,sync:90,buf:new Float32Array(300),bi:0,acc:0};
+const p3=cv('p3');const R3=mulberry(77),U3=Array.from({length:80},()=>[R3()*2-1,R3(),R3()*2-1]);
+seg('p3-type',v=>{P3.type=v;p3read();});
+['n','align','sync'].forEach(k=>$('p3-'+k).addEventListener('input',e=>{P3[k]=+e.target.value;p3read();}));
+function p3read(){
+  $('p3-n-v').textContent=P3.n;$('p3-align-v').textContent='±'+P3.align+'°';$('p3-sync-v').textContent=P3.sync+' %';
+  let re=0,im=0;
+  if(P3.type==='pyr')for(let i=0;i<P3.n;i++){const phi=P3.align*D2R*U3[i][0],psi=(1-P3.sync/100)*2*Math.PI*U3[i][1];re+=Math.cos(phi)*Math.cos(psi);im+=Math.cos(phi)*Math.sin(psi);}
+  const a=Math.hypot(re,im)/P3.n;$('p3-amp').textContent=fmt(a*100,0)+' %';$('p3-bar').style.width=(a*100)+'%';
+  $('p3-rand').textContent=P3.type==='pyr'?fmt(100/Math.sqrt(P3.n),0)+' %':'0 %';
+}
+p3read();
+function p3frame(t,dt){
+  const o=p3,ctx=o.ctx,w=o.w,h=o.h;if(!w)return;ctx.clearRect(0,0,w,h);
+  const f=.8,n=P3.n,gx0=w*.03,gx1=w*.66,gy0=h*.1,gy1=h*.62;
+  ctx.fillStyle=C.cortex;ctx.fillRect(gx0-6,gy0-14,gx1-gx0+12,gy1-gy0+22);
+  label(ctx,T('↑ superficie cortical (hacia el electrodo)','↑ cortical surface (towards the electrode)'),gx0,gy0-20,{size:11});
+  const cols=Math.ceil(Math.sqrt(n*(gx1-gx0)/(gy1-gy0))),rows=Math.ceil(n/cols);
+  const cw=(gx1-gx0)/cols,ch=(gy1-gy0)/rows,sz=Math.min(cw,ch)*.42;
+  let sx=0,sy=0;
+  for(let i=0;i<n;i++){
+    const c=i%cols,r=Math.floor(i/cols),x=gx0+cw*(c+.5),y=gy0+ch*(r+.5);
+    const phi=P3.align*D2R*U3[i][0],psi=(1-P3.sync/100)*2*Math.PI*U3[i][1];
+    const a=Math.sin(2*Math.PI*f*t+psi);
+    const col=a>0?mix(C.cell,C.pos,Math.min(1,a)):mix(C.cell,C.neg,Math.min(1,-a));
+    ctx.save();ctx.translate(x,y);
+    if(P3.type==='pyr'){
+      ctx.rotate(phi);ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=2;ctx.lineCap='round';
+      ctx.beginPath();ctx.moveTo(0,sz*.25);ctx.lineTo(0,-sz);ctx.moveTo(0,-sz);ctx.lineTo(-sz*.25,-sz*1.15);ctx.moveTo(0,-sz);ctx.lineTo(sz*.25,-sz*1.15);ctx.moveTo(0,sz*.3);ctx.lineTo(-sz*.35,sz*.75);ctx.moveTo(0,sz*.3);ctx.lineTo(sz*.35,sz*.75);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(0,-sz*.12);ctx.lineTo(sz*.22,sz*.3);ctx.lineTo(-sz*.22,sz*.3);ctx.closePath();ctx.fill();
+      sx+=a*Math.sin(phi);sy+=a*Math.cos(phi);
+    }else{
+      ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=1.8;
+      for(let k=0;k<7;k++){const an=k/7*2*Math.PI+U3[i][2];ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(an)*sz*.85,Math.sin(an)*sz*.85);ctx.stroke();}
+      ctx.beginPath();ctx.arc(0,0,sz*.2,0,7);ctx.fill();
+    }
+    ctx.restore();
+  }
+  // net arrow
+  const ax=w*.83,ay=h*.38,maxL=h*.26;
+  ctx.strokeStyle=C.line;ctx.lineWidth=1;ctx.setLineDash([3,4]);ctx.beginPath();ctx.arc(ax,ay,maxL,0,7);ctx.stroke();ctx.setLineDash([]);
+  const nx=sx/n,ny=sy/n;arrow(ctx,ax,ay,ax+nx*maxL,ay-ny*maxL,C.accent,5,16);
+  ctx.fillStyle=C.ink;ctx.beginPath();ctx.arc(ax,ay,3,0,7);ctx.fill();
+  label(ctx,T('dipolo neto','net dipole'),ax,h*.07,{align:'center',size:12,weight:600,col:C.ink});
+  label(ctx,T('(círculo = todas alineadas','(circle = all aligned'),ax,ay+maxL+16,{align:'center',size:10.5});label(ctx,T('y sincrónicas)','and synchronous)'),ax,ay+maxL+30,{align:'center',size:10.5});
+  // trace
+  P3.acc+=dt;while(P3.acc>.02){P3.acc-=.02;P3.buf[P3.bi]=ny;P3.bi=(P3.bi+1)%P3.buf.length;}
+  const ty0=h*.72,ty1=h*.97,tm=(ty0+ty1)/2,tx0=w*.03,tx1=w*.97;
+  ctx.strokeStyle=C.line;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(tx0,tm);ctx.lineTo(tx1,tm);ctx.moveTo(tx0,ty0);ctx.lineTo(tx1,ty0);ctx.moveTo(tx0,ty1);ctx.lineTo(tx1,ty1);ctx.stroke();
+  ctx.strokeStyle=C.ink;ctx.lineWidth=1.8;ctx.beginPath();const L=P3.buf.length;
+  for(let i=0;i<L;i++){const v=P3.buf[(P3.bi+i)%L],xx=tx0+(tx1-tx0)*i/(L-1),yy=tm-v*(ty1-ty0)/2;i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);}ctx.stroke();
+  label(ctx,T('señal en el electrodo (componente vertical del dipolo neto)','electrode signal (vertical component of the net dipole)'),tx0,ty0-6,{size:11});
+  label(ctx,T('máx.','max.'),tx1,ty0+12,{size:10,align:'right'});label(ctx,T('−máx.','−max.'),tx1,ty1-4,{size:10,align:'right'});
+}
+
+/* =====================================================================
+   FASE 4 · gyri & sulci (flat half-space, units of canvas width)
+   ===================================================================== */
+const P4={pos:250,wid:50,geom:null,ref:null};
+const p4=cv('p4');
+const YS=.215,D0=.3,DS=.2,PER=.3,P4M=15;let P4U=1;
+function depth4(x){const u=(x-.2)/PER;const c=(1+Math.cos(2*Math.PI*u))/2;return D0+DS*Math.pow(c,10);}
+function p4geom(){
+  const pts=[];let s=0,px=0,py=depth4(0);const M=3000;
+  for(let i=0;i<=M;i++){const x=i/M,y=depth4(x);const seg=i?Math.hypot(x-px,y-py):0;s+=seg;const dy=(depth4(x+1e-4)-depth4(x-1e-4))/2e-4;const L=Math.hypot(dy,1);pts.push({x,y,s,ds:seg,nx:dy/L,ny:-1/L});px=x;py=y;}
+  P4.geom={pts,L:s};
+}
+p4geom();
+function sAtX(x){const g=P4.geom.pts;return g[Math.round(x*3000)].s/P4.geom.L;}
+function p4active(center,width){const g=P4.geom,L=g.L,c=center*L,hw=width*L/2;return g.pts.filter(p=>Math.abs(p.s-c)<=hw);}
+function p4V(act){const xs=[];for(let i=0;i<=240;i++){const x=i/240;let v=0;for(const p of act){const dx=x-p.x,dy=YS-p.y;const r3=Math.pow(dx*dx+dy*dy,1.5);v+=(p.nx*dx+p.ny*dy)/r3*p.ds;}xs.push(v);}return xs;}
+function p4calib(){const v=p4V(p4active(sAtX(.35),.05));P4U=10/Math.max(...v.map(Math.abs));}
+function p4update(){
+  const c=P4.pos/1000,wd=P4.wid/1000;
+  const act=p4active(c,wd),V=p4V(act);
+  const ref=Math.max(...p4V(p4active(sAtX(.35),wd)).map(Math.abs));
+  let tx=0,ty=0,len=0;act.forEach(p=>{tx+=p.nx*p.ds;ty+=p.ny*p.ds;len+=p.ds;});
+  P4.act=act;P4.V=V;P4.ref=ref;P4.net=[tx,ty];
+  const eeg=Math.max(...V.map(Math.abs))/ref,meg=Math.abs(tx)/len;
+  $('p4-eeg').textContent=fmt(Math.min(eeg,9.99)*100,0)+' %';$('p4-eeg-b').style.width=Math.min(100,eeg*100)+'%';
+  $('p4-meg').textContent=fmt(meg*100,0)+' %';$('p4-meg-b').style.width=Math.min(100,meg*100)+'%';
+  const mid=act[Math.floor(act.length/2)]||{nx:0,ny:-1};const ang=Math.abs(Math.atan2(mid.nx,-mid.ny))/D2R;
+  $('p4-pos-v').textContent=ang<25?'radial':ang>65?T('tangencial','tangential'):T('oblicua','oblique');
+  $('p4-wid-v').textContent=fmt(P4.wid/10,0)+T(' % de la corteza',' % of cortex');
+  p4.dirty=true;
+}
+function p4draw(){
+  const o=p4,ctx=o.ctx,w=o.w,h=o.h;if(!w||!o.dirty)return;o.dirty=false;ctx.clearRect(0,0,w,h);
+  const X=x=>x*w,Y=y=>y*w;const g=P4.geom.pts;
+  // tissues
+  ctx.fillStyle=C.scalp;ctx.fillRect(0,Y(YS),w,Y(.02));ctx.fillStyle=C.bone;ctx.fillRect(0,Y(YS+.02),w,Y(.035));ctx.fillStyle=C.csf;ctx.fillRect(0,Y(YS+.055),w,h-Y(YS+.055));
+  ctx.fillStyle=C.cortex;ctx.beginPath();ctx.moveTo(0,h);g.forEach((p,i)=>ctx.lineTo(X(p.x),Y(p.y)));ctx.lineTo(w,h);ctx.closePath();ctx.fill();
+  ctx.fillStyle=C.white;ctx.beginPath();const th=.028;g.forEach((p,i)=>{const x=X(p.x-p.nx*th),y=Y(p.y-p.ny*th);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.lineTo(w,h);ctx.lineTo(0,h);ctx.closePath();ctx.fill();
+  label(ctx,T('cuero cabelludo','scalp'),8,Y(YS+.01),{size:10,base:'middle'});label(ctx,T('cráneo','skull'),8,Y(YS+.037),{size:10,base:'middle'});label(ctx,T('LCR','CSF'),8,Y(YS+.068),{size:10,base:'middle'});
+  label(ctx,T('sustancia gris','grey matter'),X(.35),Y(D0+.016),{size:10.5,align:'center',base:'middle'});label(ctx,T('sustancia blanca','white matter'),X(.35),Y(D0+.07),{size:10.5,align:'center',base:'middle'});
+  label(ctx,T('giro','gyrus'),X(.35),Y(D0-.012),{size:11,align:'center',weight:600,col:C.ink});label(ctx,T('surco','sulcus'),X(.5),Y(D0+DS+.04),{size:11,weight:600,col:C.ink,align:'center'});
+  // cells
+  const actSet=new Set(P4.act.map(p=>p.s));
+  const step=P4.geom.L/90;let next=0;
+  for(const p of g){if(p.s<next)continue;next=p.s+step;const L=.02;ctx.strokeStyle=rgba(C.cell,.35);ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(X(p.x-p.nx*.004),Y(p.y-p.ny*.004));ctx.lineTo(X(p.x-p.nx*(L+.004)),Y(p.y-p.ny*(L+.004)));ctx.stroke();}
+  // active
+  const aStep=Math.max(1,Math.floor(P4.act.length/14));
+  ctx.strokeStyle=rgba(C.accent,.5);ctx.lineWidth=6;ctx.lineCap='round';ctx.beginPath();P4.act.forEach((p,i)=>{i?ctx.lineTo(X(p.x),Y(p.y)):ctx.moveTo(X(p.x),Y(p.y));});ctx.stroke();
+  P4.act.forEach((p,i)=>{if(i%aStep)return;const b=[X(p.x-p.nx*.022),Y(p.y-p.ny*.022)];arrow(ctx,b[0],b[1],X(p.x+p.nx*.004),Y(p.y+p.ny*.004),C.pos,2,6);});
+  // net
+  if(P4.act.length){const len=P4.act.reduce((a,p)=>a+p.ds,0);const mx=P4.act.reduce((a,p)=>a+p.x*p.ds,0)/len,my=P4.act.reduce((a,p)=>a+p.y*p.ds,0)/len;
+    const sc=.07/len;ctx.setLineDash([5,4]);arrow(ctx,X(mx),Y(my),X(mx+P4.net[0]*sc),Y(my+P4.net[1]*sc),C.ink,2.2,10);ctx.setLineDash([]);}
+  // chart
+  // fixed vertical axis: ±P4M arbitrary units (crest patch of default width = 10 u.a.)
+  const M=P4M,U=P4U,cy0=Y(.03),cy1=Y(.185),cm=(cy0+cy1)/2,sc=(cy1-cy0)/2/M,cl=v=>Math.max(-M,Math.min(M,v*U));
+  const V=P4.V;
+  ctx.lineWidth=1;for(const t of[-10,-5,5,10]){ctx.strokeStyle=rgba(C.ink,.08);ctx.beginPath();ctx.moveTo(30,cm-t*sc);ctx.lineTo(w,cm-t*sc);ctx.stroke();label(ctx,(t>0?'+':'−')+Math.abs(t),26,cm-t*sc,{size:10,align:'right',base:'middle'});}
+  ctx.strokeStyle=C.line;ctx.beginPath();ctx.moveTo(30,cm);ctx.lineTo(w,cm);ctx.stroke();label(ctx,'0',26,cm,{size:10,align:'right',base:'middle'});
+  for(const sgn of[1,-1]){ctx.fillStyle=rgba(sgn>0?C.pos:C.neg,.25);ctx.beginPath();ctx.moveTo(0,cm);V.forEach((v,i)=>{const c=cl(v);ctx.lineTo(X(i/240),cm-(sgn>0?Math.max(0,c):Math.min(0,c))*sc);});ctx.lineTo(w,cm);ctx.closePath();ctx.fill();}
+  ctx.strokeStyle=C.ink;ctx.lineWidth=1.8;ctx.beginPath();V.forEach((v,i)=>{const x=X(i/240),y=cm-cl(v)*sc;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();
+  const vmax=Math.max(...V.map(Math.abs))*U;
+  label(ctx,T(`voltaje en el cuero cabelludo · eje fijo ±${M} u.a. · pico ${fmt(vmax,1)} u.a.`,`scalp voltage · fixed axis ±${M} a.u. · peak ${fmt(vmax,1)} a.u.`),36,cy0-20,{size:11,base:'top'});
+  if(vmax>M)label(ctx,T('↕ se sale del eje','↕ off the axis'),w-8,cy0-20,{size:11,base:'top',align:'right',col:C.accent,weight:600});
+  // electrodes
+  for(let i=0;i<10;i++){const x=.05+i*.1,v=V[Math.round(x*240)]*P4U/P4M;ctx.fillStyle=divCss(v);ctx.strokeStyle=C.accent;ctx.lineWidth=2;ctx.beginPath();ctx.arc(X(x),Y(YS)-2,6,0,7);ctx.fill();ctx.stroke();}
+}
+$('p4-pos').addEventListener('input',e=>{P4.pos=+e.target.value;p4update();});
+$('p4-wid').addEventListener('input',e=>{P4.wid=+e.target.value;p4update();});
+$('p4-presets').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const m={crest:[.35,50],wall:[0,50],fundus:[.5,30],both:[.5,150]}[b.dataset.s];
+  let s;if(b.dataset.s==='wall'){const g=P4.geom.pts;const pt=g.find(p=>p.x>.4&&p.y>D0+DS*.5);s=pt.s/P4.geom.L;}else s=sAtX(m[0]);
+  P4.pos=Math.round(s*1000);P4.wid=m[1];$('p4-pos').value=P4.pos;$('p4-wid').value=P4.wid;p4update();});
+p4.c.addEventListener('pointerdown',e=>{const r=p4.c.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.width;let best=null,bd=1e9;for(const p of P4.geom.pts){const d=(p.x-x)**2+(p.y-y)**2;if(d<bd){bd=d;best=p;}}if(Math.sqrt(bd)<.06){P4.pos=Math.round(best.s/P4.geom.L*1000);$('p4-pos').value=P4.pos;p4update();}});
+DIRTY.p4=()=>{p4.dirty=true;};
+
+/* =====================================================================
+   Sphere forward model (shared by fases 5–7)
+   ===================================================================== */
+function unitV(az,th){const a=az*D2R,t=th*D2R;return[Math.sin(t)*Math.sin(a),Math.sin(t)*Math.cos(a),Math.cos(t)];}
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const nrm=v=>{const l=Math.hypot(v[0],v[1],v[2])||1;return[v[0]/l,v[1]/l,v[2]/l];};
+const KCAL=.01, HEADR=90;
+function frame(r){let n=[-r[1]*r[0],1-r[1]*r[1],-r[1]*r[2]];if(Math.hypot(...n)<1e-6)n=[-r[2]*r[0],-r[2]*r[1],1-r[2]*r[2]];n=nrm(n);return{n,e:cross(n,r)};}
+function dipMoment(d){const r=unitV(d.az,d.th),{n,e}=frame(r),i=d.inc*D2R,f=d.dir*D2R;return r.map((x,k)=>d.amp*(Math.cos(i)*x+Math.sin(i)*(Math.cos(f)*n[k]+Math.sin(f)*e[k])));}
+const ATTC={};
+function att(k,N){const key=k+'|'+N;if(ATTC[key])return ATTC[key];const a=new Float64Array(N+2);for(let n=0;n<=N+1;n++)a[n]=Math.exp(-k*n);return ATTC[key]=a;}
+function prep(d,k,Nmax=150){const r=unitV(d.az,d.th),p=d.p||dipMoment(d),b=d.b!=null?d.b:1-d.depth/HEADR;const A=att(k,Nmax);let N=1;for(;N<Nmax;N++){if(Math.pow(b,N)*N*N*A[N]<1e-7)break;}return{r,p,pr:dot(p,r),b,N,A};}
+function potE(e,P){let s=0;for(const q of P){const x=e[0]*q.r[0]+e[1]*q.r[1]+e[2]*q.r[2];const pte=e[0]*q.p[0]+e[1]*q.p[1]+e[2]*q.p[2]-q.pr*x;let P0=1,P1=x,d0=0,d1=1,bp=1,acc=0;const A=q.A;
+  for(let n=1;n<=q.N;n++){acc+=(2*n+1)/n*bp*(n*q.pr*P1+pte*d1)*A[n];const P2=((2*n+1)*x*P1-n*P0)/(n+1),d2=d0+(2*n+1)*P1;P0=P1;P1=P2;d0=d1;d1=d2;bp*=q.b;}s+=acc;}return s*KCAL;}
+
+/* =====================================================================
+   FASE 5 · through the skull (2-D slice of the sphere model)
+   ===================================================================== */
+const P5={depth:25,inc:0,skull:45,norm:false,axis:100};
+const p5=cv('p5');
+const RB=.84;
+function p5compute(){
+  const r0=1-P5.depth/HEADR,i=P5.inc*D2R,p=[Math.sin(i)*50,0,Math.cos(i)*50],k=P5.skull/100*.1;
+  const qE=prep({az:0,th:0,b:r0/RB,p},0,700),qS=prep({az:0,th:0,b:r0,p},k,400);
+  const ec=[],sc=[];for(let g=-90;g<=90;g++){const e=unitV(90,g);ec.push(potE(e,[qE])/(RB*RB));sc.push(potE(e,[qS]));}
+  P5.ec=ec;P5.sc=sc;P5.r0=r0;P5.p=p;
+  const me=Math.max(...ec.map(Math.abs)),ms=Math.max(...sc.map(Math.abs));P5.me=me;P5.ms=ms;
+  const wid=(arr,m,R)=>arr.filter(v=>Math.abs(v)>=m/2).length*D2R*R*HEADR;
+  $('p5-ecog').textContent=fmt(me,0)+' µV';$('p5-eeg').textContent=fmt(ms,1)+' µV';
+  $('p5-wid').innerHTML=`ECoG ${fmt(wid(ec,me,RB),0)} mm<br>EEG ${fmt(wid(sc,ms,1),0)} mm`;
+  $('p5-depth-v').textContent=P5.depth+' mm';
+  $('p5-inc-v').textContent=P5.inc+'° · '+(P5.inc<25?'radial ↑':P5.inc>155?'radial ↓':(P5.inc>65&&P5.inc<115)?T('tangencial','tangential'):T('oblicua','oblique'));
+  $('p5-skull-v').textContent=P5.skull===0?T('sin cráneo','no skull'):P5.skull<35?T('baja','low'):P5.skull<70?T('media','medium'):T('alta','high');
+  p5.dirty=true;
+}
+function p5draw(){
+  const o=p5,ctx=o.ctx,w=o.w,h=o.h;if(!w||!o.dirty)return;o.dirty=false;ctx.clearRect(0,0,w,h);
+  const R=Math.min(w*.44,h*.5),cx=w/2,cy=h*.04+R;
+  const ring=(r,col)=>{ctx.fillStyle=col;ctx.beginPath();ctx.arc(cx,cy,r*R,Math.PI,2*Math.PI);ctx.closePath();ctx.fill();};
+  ring(1,C.scalp);ring(.94,C.bone);ring(.87,C.csf);ring(RB,C.cortex);
+  // field heat inside brain (infinite-medium illustration)
+  const cell=3,dp=[P5.p[0],P5.p[2]],d0=[0,P5.r0];
+  for(let py=cy-RB*R;py<cy;py+=cell)for(let px=cx-RB*R;px<cx+RB*R;px+=cell){const u=(px+cell/2-cx)/R,v=(cy-(py+cell/2))/R;if(u*u+v*v>RB*RB)continue;const dx=u-d0[0],dy=v-d0[1],r2=dx*dx+dy*dy;if(r2<.0016)continue;const val=(dp[0]*dx+dp[1]*dy)/Math.pow(r2,1.5)/50;const t=Math.sign(val)*Math.min(1,Math.pow(Math.abs(val)/60,.45));ctx.fillStyle=divCss(t);ctx.globalAlpha=.75;ctx.fillRect(px,py,cell+.5,cell+.5);}
+  ctx.globalAlpha=1;
+  ctx.strokeStyle=rgba(C.ink,.25);ctx.lineWidth=1;[RB,.87,.94,1].forEach(r=>{ctx.beginPath();ctx.arc(cx,cy,r*R,Math.PI,2*Math.PI);ctx.stroke();});
+  ctx.beginPath();ctx.moveTo(cx-R,cy);ctx.lineTo(cx+R,cy);ctx.stroke();
+  // labels on the left side
+  [[C.scalp,T('cuero cabelludo','scalp')],[C.bone,T('cráneo','skull')],[C.csf,T('LCR','CSF')],[C.cortex,T('cerebro','brain')]].forEach(([c,t],i)=>{const yy=14+i*17;ctx.fillStyle=c;ctx.strokeStyle=rgba(C.ink,.3);ctx.fillRect(8,yy-6,14,12);ctx.strokeRect(8,yy-6,14,12);label(ctx,t,28,yy,{size:11,base:'middle'});});
+  // dipole
+  const dx=cx,dy=cy-P5.r0*R,L=R*.14;arrow(ctx,dx-dp[0]/50*L*.5,dy+dp[1]/50*L*.5,dx+dp[0]/50*L*.5,dy-dp[1]/50*L*.5,C.ink,3.5,11);
+  // ECoG contacts + EEG electrodes
+  for(let g=-80;g<=80;g+=10){const a=g*D2R,x=cx+RB*R*Math.sin(a),y=cy-RB*R*Math.cos(a);ctx.fillStyle=divCss(P5.ec[g+90]/P5.me);ctx.strokeStyle=C.ink;ctx.lineWidth=1;ctx.beginPath();ctx.arc(x,y,3.6,0,7);ctx.fill();ctx.stroke();}
+  for(let g=-80;g<=80;g+=20){const a=g*D2R,x=cx+(R+6)*Math.sin(a),y=cy-(R+6)*Math.cos(a);ctx.fillStyle=divCss(P5.sc[g+90]/P5.ms);ctx.strokeStyle=C.accent;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(x,y,7,0,7);ctx.fill();ctx.stroke();}
+  // chart
+  const y0=cy+34,y1=h-24,x0=48,x1=w-14;
+  const M=P5.norm?1:P5.axis,mid=(y0+y1)/2,sc=(y1-y0)/2/M;
+  for(const t of[-1,-.5,0,.5,1]){const yy=mid-t*M*sc;ctx.strokeStyle=t?rgba(C.ink,.08):C.line;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x0,yy);ctx.lineTo(x1,yy);ctx.stroke();
+    label(ctx,P5.norm?fmt(t,1):(t>0?'+':t<0?'−':'')+fmt(Math.abs(t*M),0),x0-6,yy,{align:'right',base:'middle',size:10});}
+  const X=g=>x0+(x1-x0)*(g+90)/180;
+  [[-90,'−90°'],[-45,'−45°'],[0,T('0° (sobre la fuente)','0° (above the source)')],[45,'45°'],[90,'90°']].forEach(([g,t])=>label(ctx,t,X(g),h-8,{align:'center',size:10.5}));
+  const curve=(arr,m,col,lw,name,ly)=>{ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.beginPath();let clip=false;
+    arr.forEach((v,i)=>{const vv=P5.norm?v/m:v;if(Math.abs(vv)>M)clip=true;const y=mid-Math.max(-M,Math.min(M,vv))*sc;i?ctx.lineTo(X(i-90),y):ctx.moveTo(X(i-90),y);});ctx.stroke();
+    label(ctx,name+(clip?T(`  ↕ se sale del eje (pico ${fmt(m,0)} µV)`,`  ↕ off the axis (peak ${fmt(m,0)} µV)`):''),x1-4,ly,{col,weight:600,size:12,align:'right'});};
+  curve(P5.ec,P5.me,C.cell,2,T('— superficie cortical (ECoG)','— cortical surface (ECoG)'),y0+8);
+  curve(P5.sc,P5.ms,C.accent,2.6,T('— cuero cabelludo (EEG)','— scalp (EEG)'),y0+24);
+  label(ctx,P5.norm?'norm.':'µV',x0-6,y0-16,{align:'right',size:10.5});
+}
+['depth','inc','skull'].forEach(k=>$('p5-'+k).addEventListener('input',e=>{P5[k]=+e.target.value;p5compute();}));
+$('p5-norm').addEventListener('change',e=>{P5.norm=e.target.checked;$('p5-axis').style.opacity=P5.norm?.4:1;p5.dirty=true;});
+seg('p5-axis',v=>{P5.axis=+v;p5.dirty=true;});
+DIRTY.p5=()=>{p5.dirty=true;};
+
+/* =====================================================================
+   Dipole lab (fases 6 y 7)
+   ===================================================================== */
+const ELEC=[['Fp1',-18,90],['Fp2',18,90],['F7',-54,90],['F3',-40,62],['Fz',0,45],['F4',40,62],['F8',54,90],['T7',-90,90],['C3',-90,45],['Cz',0,0],['C4',90,45],['T8',90,90],['P7',-126,90],['P3',-140,62],['Pz',180,45],['P4',140,62],['P8',126,90],['O1',-162,90],['O2',162,90]].map(([n,a,t])=>({n,az:a,th:t,e:unitV(a,t)}));
+const THMAX=105;
+const SAMP=(()=>{const s=[];for(let i=0;i<36;i++)for(let j=0;j<36;j++){const u=(i+.5)/36*2-1,v=(j+.5)/36*2-1,rr=Math.hypot(u,v);if(rr>1)continue;s.push(unitV(Math.atan2(u,-v)/D2R,rr*THMAX));}return s;})();
+let DID=1;
+const mkD=o=>Object.assign({id:DID++,az:0,th:0,depth:25,inc:0,dir:0,amp:50},o);
+
+class Lab{
+  constructor(o){Object.assign(this,o);this.dips=[];this.sel=null;this.k=.04;this.grid=null;this.G=0;this.dirty=true;this.showD=o.showD!==false;
+    this.cm=cv(o.map);if(o.side)this.cs=cv(o.side);
+    if(o.interactive)this.bindMap();
+    if(o.editor){this.buildEditor();}
+  }
+  set(dips){this.dips=dips.map(d=>mkD(d));this.sel=this.dips[0]?.id??null;this.change();}
+  get cur(){return this.dips.find(d=>d.id===this.sel);}
+  change(fast){this.dirty=true;this.fast=!!fast;this.cm.dirty=true;if(this.cs)this.cs.dirty=true;if(this.editor)this.syncEditor();this.onChange&&this.onChange();}
+  compute(){
+    const G=this.fast?96:210;const P=this.dips.filter(d=>d.amp>0).map(d=>prep(d,this.k));
+    const vals=new Float32Array(G*G);let mx=0;
+    for(let j=0;j<G;j++)for(let i=0;i<G;i++){const u=(i+.5)/G*2-1,v=(j+.5)/G*2-1,rr=Math.hypot(u,v);if(rr>1){vals[j*G+i]=NaN;continue;}const V=P.length?potE(unitV(Math.atan2(u,-v)/D2R,rr*THMAX),P):0;vals[j*G+i]=V;if(Math.abs(V)>mx)mx=Math.abs(V);}
+    this.grid=vals;this.G=G;this.maxAbs=mx;this.P=P;this.dirty=false;
+  }
+  scale(){if(this.autoScale()){const m=this.maxAbs||1;const nice=[1,2,2.5,5,10];const p=Math.pow(10,Math.floor(Math.log10(m)));for(const n of nice)if(n*p>=m*1.0)return n*p;return 10*p;}return this.fixed();}
+  geo(){const o=this.cm,S=Math.min(o.w,o.h),R=S*.4;return{cx:o.w/2,cy:o.h/2+S*.02,R};}
+  proj(az,th){const{cx,cy,R}=this.geo(),rr=th/THMAX*R;return[cx+rr*Math.sin(az*D2R),cy-rr*Math.cos(az*D2R)];}
+  unproj(x,y){const{cx,cy,R}=this.geo(),u=(x-cx)/R,v=(y-cy)/R;return{az:Math.atan2(u,-v)/D2R,th:Math.min(THMAX,Math.hypot(u,v)*THMAX),inside:Math.hypot(u,v)<=1};}
+  draw(){
+    const o=this.cm;if(!o.w||!o.dirty)return;if(this.dirty)this.compute();o.dirty=false;
+    const ctx=o.ctx,{cx,cy,R}=this.geo();ctx.clearRect(0,0,o.w,o.h);
+    const G=this.G,S=this.scale(),img=new ImageData(G,G),step=S/5,cont=this.contours();
+    for(let j=0;j<G;j++)for(let i=0;i<G;i++){const k=j*G+i,v=this.grid[k];if(isNaN(v))continue;let[r,g,b]=divRGB(v/S);
+      if(cont){const q=Math.floor(v/step);const vr=i<G-1?this.grid[k+1]:NaN,vd=j<G-1?this.grid[k+G]:NaN;if((!isNaN(vr)&&Math.floor(vr/step)!==q)||(!isNaN(vd)&&Math.floor(vd/step)!==q)){const f=(q===0||q===-1)&&(Math.floor(vr/step)*q<=0)?.5:.74;r*=f;g*=f;b*=f;}}
+      img.data.set([r,g,b,255],k*4);}
+    if(!this.off){this.off=document.createElement('canvas');}this.off.width=G;this.off.height=G;this.off.getContext('2d').putImageData(img,0,0);
+    ctx.save();ctx.beginPath();ctx.arc(cx,cy,R,0,7);ctx.clip();ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(this.off,cx-R,cy-R,2*R,2*R);ctx.restore();
+    // head
+    ctx.strokeStyle=C.ink;ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,R,0,7);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(cx-R*.09,cy-R*.995);ctx.lineTo(cx,cy-R*1.1);ctx.lineTo(cx+R*.09,cy-R*.995);ctx.stroke();
+    for(const s of[-1,1]){ctx.beginPath();ctx.ellipse(cx+s*R*1.03,cy,R*.045,R*.14,0,s<0?Math.PI/2:-Math.PI/2,s<0?Math.PI*1.5:Math.PI/2);ctx.stroke();}
+    ctx.strokeStyle=rgba(C.ink,.25);ctx.lineWidth=1;ctx.setLineDash([2,4]);ctx.beginPath();ctx.arc(cx,cy,R*90/THMAX,0,7);ctx.stroke();ctx.setLineDash([]);
+    label(ctx,T('I','L'),cx-R-R*.12,cy,{align:'right',base:'middle',size:11});label(ctx,T('D','R'),cx+R+R*.12,cy,{align:'left',base:'middle',size:11});
+    if(this.elec()){for(const e of ELEC){const[x,y]=this.proj(e.az,e.th);ctx.fillStyle=C.ink;ctx.beginPath();ctx.arc(x,y,2.6,0,7);ctx.fill();if(R>140)label(ctx,e.n,x,y-5,{align:'center',size:10,col:'rgba(20,20,20,.75)'});}}
+    if(this.showD)this.dips.forEach(d=>this.glyph(ctx,d,d.id===this.sel&&this.interactive));
+    if(this.hover){const[x,y]=this.hover;ctx.strokeStyle=C.ink;ctx.lineWidth=1;ctx.beginPath();ctx.arc(x,y,5,0,7);ctx.stroke();}
+    if(this.cs)this.drawSide();
+    if(this.after)this.after(S);
+  }
+  glyph(ctx,d,sel){
+    const p=dipMoment(d),r=unitV(d.az,d.th),pr=dot(p,r),pt=p.map((v,i)=>v-pr*r[i]),ptm=Math.hypot(...pt);
+    const[x,y]=this.proj(d.az,d.th);const{R}=this.geo();
+    if(sel){ctx.strokeStyle=C.accent;ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,15,0,7);ctx.stroke();}
+    if(ptm>.02*d.amp){const q=nrm(r.map((v,i)=>v+.12*pt[i]/ptm));const az=Math.atan2(q[0],q[1])/D2R,th=Math.acos(Math.max(-1,Math.min(1,q[2])))/D2R;const[x2,y2]=this.proj(az,th);const dx=x2-x,dy=y2-y,L=Math.hypot(dx,dy)||1;const len=R*.2*ptm/100+8;
+      arrow(ctx,x,y,x+dx/L*len,y+dy/L*len,'#fff',6,12);arrow(ctx,x,y,x+dx/L*len,y+dy/L*len,'#111',3,10);}
+    const rad=Math.abs(pr)/d.amp,rr=4+7*rad;
+    ctx.fillStyle=pr>=0?'#a51628':'#21529f';ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,rr,0,7);ctx.fill();ctx.stroke();
+    ctx.strokeStyle='#fff';ctx.fillStyle='#fff';if(pr>=0){ctx.beginPath();ctx.arc(x,y,Math.max(1.5,rr*.3),0,7);ctx.fill();}else{const a=rr*.5;ctx.lineWidth=1.8;ctx.beginPath();ctx.moveTo(x-a,y-a);ctx.lineTo(x+a,y+a);ctx.moveTo(x+a,y-a);ctx.lineTo(x-a,y+a);ctx.stroke();}
+    if(this.dips.length>1)label(ctx,'D'+(this.dips.indexOf(d)+1),x+rr+4,y+rr+6,{size:11,weight:600,col:'#111'});
+  }
+  drawSide(){
+    const o=this.cs;if(!o.w)return;const ctx=o.ctx,w=o.w,h=o.h;ctx.clearRect(0,0,w,h);
+    const d=this.cur;const R=Math.min(w,h)*.42,cx=w/2,cy=h/2+h*.03;
+    [[1,C.scalp],[.94,C.bone],[.87,C.csf],[.84,C.cortex]].forEach(([r,c])=>{ctx.fillStyle=c;ctx.beginPath();ctx.arc(cx,cy,r*R,0,7);ctx.fill();});
+    ctx.strokeStyle=rgba(C.ink,.3);ctx.lineWidth=1;[.84,.87,.94,1].forEach(r=>{ctx.beginPath();ctx.arc(cx,cy,r*R,0,7);ctx.stroke();});
+    label(ctx,T('Corte por el dipolo seleccionado','Section through the selected dipole'),w/2,14,{align:'center',size:11,weight:600,col:C.ink});
+    if(!d){label(ctx,T('(ningún dipolo)','(no dipole)'),cx,cy,{align:'center',base:'middle'});return;}
+    const az=(d.th<1?0:d.az),hd=[Math.sin(az*D2R),Math.cos(az*D2R),0],q=cross(hd,[0,0,1]);
+    const names=[[0,'Fpz'],[45,'F8'],[90,'T8'],[135,'P8'],[180,'Oz'],[-135,'P7'],[-90,'T7'],[-45,'F7'],[-180,'Oz']];
+    const nm=names.reduce((a,b)=>Math.abs(((az-b[0]+540)%360)-180)<Math.abs(((az-a[0]+540)%360)-180)?b:a)[1];
+    const opp=names.reduce((a,b)=>Math.abs(((az+180-b[0]+540)%360)-180)<Math.abs(((az+180-a[0]+540)%360)-180)?b:a)[1];
+    label(ctx,'Cz',cx,cy-R-6,{align:'center',size:11});label(ctx,nm+' →',cx+R+2,cy+R*.62,{align:'right',size:11});label(ctx,'← '+opp,cx-R-2,cy+R*.62,{align:'left',size:11});
+    const b=1-d.depth/HEADR,px=cx+b*Math.sin(d.th*D2R)*R,py=cy-b*Math.cos(d.th*D2R)*R;
+    ctx.setLineDash([3,4]);ctx.strokeStyle=rgba(C.ink,.4);ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.sin(d.th*D2R)*R,cy-Math.cos(d.th*D2R)*R);ctx.stroke();ctx.setLineDash([]);
+    const p=dipMoment(d),pu=dot(p,hd),pw=p[2],pq=dot(p,q),L=R*.32/100;
+    arrow(ctx,px-pu*L*.5,py+pw*L*.5,px+pu*L*.5,py-pw*L*.5,C.ink,3.5,11);
+    if(Math.abs(pq)>5){ctx.strokeStyle=C.ink;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(px+R*.12,py-R*.12,6,0,7);ctx.stroke();if(pq>0){ctx.fillStyle=C.ink;ctx.beginPath();ctx.arc(px+R*.12,py-R*.12,2,0,7);ctx.fill();}else{ctx.beginPath();ctx.moveTo(px+R*.12-4,py-R*.12-4);ctx.lineTo(px+R*.12+4,py-R*.12+4);ctx.moveTo(px+R*.12+4,py-R*.12-4);ctx.lineTo(px+R*.12-4,py-R*.12+4);ctx.stroke();}}
+    ctx.fillStyle=C.accent;ctx.beginPath();ctx.arc(px,py,3,0,7);ctx.fill();
+    label(ctx,T('línea radial','radial line'),cx+Math.sin(d.th*D2R)*R*.45+6,cy-Math.cos(d.th*D2R)*R*.45,{size:10});
+  }
+  bindMap(){
+    const c=this.cm.c;let drag=null;
+    const pos=e=>{const r=c.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top];};
+    c.addEventListener('pointerdown',e=>{const[x,y]=pos(e);let hit=null,bd=18;for(const d of this.dips){const[dx,dy]=this.proj(d.az,d.th);const dd=Math.hypot(dx-x,dy-y);if(dd<bd){bd=dd;hit=d;}}
+      const u=this.unproj(x,y);if(!u.inside&&!hit)return;
+      if(hit){this.sel=hit.id;drag=hit;}else if(this.cur){drag=this.cur;drag.az=u.az;drag.th=Math.min(100,u.th);}
+      if(drag){c.setPointerCapture(e.pointerId);this.change(true);}});
+    c.addEventListener('pointermove',e=>{const[x,y]=pos(e);const u=this.unproj(x,y);
+      if(drag){drag.az=Math.round(u.az);drag.th=Math.round(Math.min(100,u.th));this.change(true);}
+      this.readout(u,x,y);});
+    const end=()=>{if(drag){drag=null;this.change(false);}};
+    c.addEventListener('pointerup',end);c.addEventListener('pointercancel',end);
+    c.addEventListener('pointerleave',()=>{this.hover=null;this.cm.dirty=true;if(this.hoverEl)this.hoverEl.textContent=HOVERTXT();});
+  }
+  readout(u,x,y){if(!this.hoverEl)return;if(!u.inside){this.hoverEl.textContent='';this.hover=null;this.cm.dirty=true;return;}
+    const e=unitV(u.az,u.th),P=this.P||[];const V=P.length?potE(e,P):0;let near=null,bd=.12;for(const el of ELEC){const d=Math.acos(Math.min(1,dot(el.e,e)));if(d<bd){bd=d;near=el;}}
+    this.hoverEl.textContent=`${near?near.n+' · ':''}${V>=0?'+':'−'}${fmt(Math.abs(V),2)} µV`;this.hover=[x,y];this.cm.dirty=true;}
+  buildEditor(){
+    const p=this.prefix,el=this.editor;
+    el.innerHTML=`<h3>${T('Tus dipolos','Your dipoles')}</h3><div class="chips" id="${p}-chips"></div><div class="btns"><button class="btn" id="${p}-add">${T('+ Añadir dipolo','+ Add dipole')}</button></div>
+    <div id="${p}-ctl" style="display:flex;flex-direction:column;gap:10px">
+    ${[['amp',T('Amplitud','Amplitude'),'nA·m',0,120,1],['inc',T('Inclinación','Tilt'),'°',0,180,1],['dir',T('Dirección tangencial','Tangential direction'),'°',0,359,1],['depth',T('Profundidad bajo el cuero cabelludo','Depth below the scalp'),'mm',14,63,1],['az',T('Posición: ángulo alrededor de la cabeza','Position: angle around the head'),'°',-180,180,1],['th',T('Posición: distancia al vértex (Cz)','Position: distance from the vertex (Cz)'),'°',0,100,1]].map(([k,n,u,a,b,s])=>
+    `<div class="ctl"><div class="row"><label for="${p}-${k}">${n}</label><output id="${p}-${k}-v"></output></div><input type="range" id="${p}-${k}" min="${a}" max="${b}" step="${s}">${k==='inc'?`<div class="hint"><span>${T('0° radial ↑ (hacia fuera)','0° radial ↑ (outward)')}</span><span>${T('90° tangencial','90° tangential')}</span><span>180° radial ↓</span></div>`:k==='dir'?`<div class="hint"><span>${T('0° hacia la nariz','0° towards the nose')}</span><span>${T('90° hacia la oreja dcha.','90° towards the right ear')}</span></div>`:''}</div>`).join('')}
+    </div>`;
+    ['amp','inc','dir','depth','az','th'].forEach(k=>$(`${p}-${k}`).addEventListener('input',e=>{const d=this.cur;if(!d)return;d[k]=+e.target.value;this.change(true);clearTimeout(this._t);this._t=setTimeout(()=>this.change(false),160);}));
+    $(`${p}-add`).addEventListener('click',()=>{if(this.dips.length>=8)return;const d=mkD({az:Math.round(Math.random()*360-180),th:40,depth:25,inc:0,amp:40});this.dips.push(d);this.sel=d.id;this.change();});
+    $(`${p}-chips`).addEventListener('click',e=>{const x=e.target.closest('.x'),c=e.target.closest('.chip');if(x){const id=+x.dataset.id;this.dips=this.dips.filter(d=>d.id!==id);if(this.sel===id)this.sel=this.dips[0]?.id??null;this.change();return;}if(c){this.sel=+c.dataset.id;this.change();}});
+  }
+  relang(){if(this.editor){this.buildEditor();}this.change();}
+  syncEditor(){
+    const p=this.prefix,d=this.cur;
+    $(`${p}-chips`).innerHTML=this.dips.map((x,i)=>`<span class="chip" role="button" tabindex="0" data-id="${x.id}" aria-pressed="${x.id===this.sel}">D${i+1} · ${x.amp} nA·m<button class="x" data-id="${x.id}" aria-label="${T('Quitar','Remove')} D${i+1}">×</button></span>`).join('')||`<span class="note">${T('No hay dipolos. Añade uno.','No dipoles. Add one.')}</span>`;
+    $(`${p}-add`).disabled=this.dips.length>=8;
+    $(`${p}-ctl`).style.opacity=d?1:.4;
+    if(!d)return;
+    const az=((d.az+540)%360)-180;d.az=az;
+    const vals={amp:d.amp+' nA·m',inc:d.inc+'° · '+(d.inc<20?'radial ↑':d.inc>160?'radial ↓':(d.inc>70&&d.inc<110)?T('tangencial','tangential'):T('oblicua','oblique')),dir:d.dir+'°',depth:d.depth+' mm',az:az+'°',th:d.th+'°'};
+    for(const k in vals){const inp=$(`${p}-${k}`);if(document.activeElement!==inp)inp.value=d[k];$(`${p}-${k}-v`).textContent=vals[k];}
+  }
+}
+
+/* ---------- Fase 6 ---------- */
+const PRESETS=[
+  [['Radial en la cresta de un giro','Radial, on a gyral crown'],[{az:0,th:20,depth:20,inc:0,dir:0,amp:50}]],
+  [['Tangencial (pared del surco central)','Tangential (central sulcus wall)'],[{az:-90,th:40,depth:22,inc:90,dir:0,amp:50}]],
+  [['Radial profundo','Deep radial'],[{az:0,th:10,depth:50,inc:0,dir:0,amp:80}]],
+  [['Paredes opuestas de un surco','Opposite walls of a sulcus'],[{az:-58,th:42,depth:22,inc:90,dir:90,amp:50},{az:-48,th:42,depth:22,inc:90,dir:270,amp:50}]],
+  [['P300 (aprox. radial parietal)','P300 (approx. parietal radial)'],[{az:180,th:40,depth:36,inc:0,dir:0,amp:60}]],
+  [['N1 auditivo (bilateral, tangencial)','Auditory N1 (bilateral, tangential)'],[{az:-90,th:75,depth:32,inc:105,dir:270,amp:45},{az:90,th:75,depth:32,inc:105,dir:90,amp:45}]],
+];
+const lab6=new Lab({map:'p6map',side:'p6side',editor:$('p6-editor'),prefix:'p6',interactive:true,hoverEl:$('p6-hover'),
+  autoScale:()=>$('p6-auto').checked,fixed:()=>+$('p6-scale').value,contours:()=>$('p6-cont').checked,elec:()=>$('p6-elec').checked,
+  onChange(){const d=this.cur;if(!d){$('p6-decomp').textContent='';return;}const c=Math.cos(d.inc*D2R);$('p6-decomp').textContent=`radial ${fmt(Math.abs(c)*100,0)} % · ${T('tangencial','tangential')} ${fmt(Math.abs(Math.sin(d.inc*D2R))*100,0)} %`;},
+  after(S){$('p6-cmin').textContent='−'+fmt(S,S<10?1:0)+' µV';$('p6-cmax').textContent='+'+fmt(S,S<10?1:0)+' µV';}
+});
+function renderPresets(){$('p6-presets').innerHTML=PRESETS.map((p,i)=>`<button class="preset" data-i="${i}">${T(p[0][0],p[0][1])}</button>`).join('');}
+renderPresets();
+$('p6-presets').addEventListener('click',e=>{const b=e.target.closest('button');if(b)lab6.set(PRESETS[+b.dataset.i][1]);});
+$('p6-auto').addEventListener('change',e=>{$('p6-scale-wrap').style.opacity=e.target.checked?.4:1;lab6.change();});
+$('p6-scale').addEventListener('input',e=>{$('p6-scale-v').textContent='±'+e.target.value+' µV';lab6.cm.dirty=true;});
+$('p6-skull').addEventListener('change',e=>{lab6.k=e.target.checked?.04:0;lab6.change();});
+['p6-cont','p6-elec'].forEach(id=>$(id).addEventListener('change',()=>{lab6.cm.dirty=true;}));
+lab6.set(PRESETS[0][1]);
+const cbar=cv('p6cbar');
+function drawCbar(){const o=cbar;if(!o.w||!o.dirty)return;o.dirty=false;for(let i=0;i<o.w;i++){o.ctx.fillStyle=divCss(i/o.w*2-1);o.ctx.fillRect(i,0,1.5,o.h);}}
+DIRTY.lab=()=>{lab6.cm.dirty=true;if(lab6.cs)lab6.cs.dirty=true;};
+
+/* ---------- Fase 7 ---------- */
+const CHAL=[
+  {name:'¿Profunda o extensa?',desc:'Un máximo amplio en el vértex.',nameEn:'Deep or extended?',descEn:'A broad maximum at the vertex.',explainEn:'Target: a single deep radial dipole (45 mm). Alternative: seven shallow radial dipoles spread over a patch of cortex. A deep source and a shallow but extended source produce almost identical maps.',
+   target:[{az:0,th:0,depth:45,inc:0,dir:0,amp:60}],
+   start:[{az:0,th:0,depth:16,inc:0,dir:0,amp:20}],
+   alt:[{az:0,th:0,depth:18,inc:0,dir:0,amp:8},...[0,60,120,180,240,300].map(a=>({az:a,th:26,depth:18,inc:0,dir:0,amp:8}))],
+   explain:'Objetivo: un único dipolo radial profundo (45 mm). Alternativa: siete dipolos radiales superficiales repartidos por un parche de corteza. Una fuente profunda y una fuente superficial pero extensa producen mapas casi iguales.'},
+  {name:'¿Un dipolo tangencial o dos radiales?',desc:'Un polo positivo delante y uno negativo detrás, en el lado izquierdo.',nameEn:'One tangential dipole or two radial ones?',descEn:'A positive pole in front and a negative one behind, on the left side.',explainEn:'Target: a tangential dipole on the wall of a sulcus, between the two poles. Alternative: two radial dipoles of opposite sign, one under each pole. Reading the map as “there is activity under the maximum and under the minimum” would be wrong in the first case.',
+   target:[{az:-80,th:40,depth:22,inc:90,dir:0,amp:50}],
+   start:[{az:-80,th:40,depth:22,inc:0,dir:0,amp:40}],
+   alt:[{az:-58,th:43,depth:41,inc:0,dir:0,amp:85},{az:-102,th:40,depth:41,inc:180,dir:0,amp:85}],
+   explain:'Objetivo: un dipolo tangencial en la pared de un surco, entre los dos polos. Alternativa: dos dipolos radiales de signo opuesto, uno bajo cada polo. Leer el mapa como “hay actividad bajo el máximo y bajo el mínimo” sería un error en el primer caso.'},
+  {name:'¿Una fuente o dos?',desc:'Un máximo central y simétrico.',nameEn:'One source or two?',descEn:'A central, symmetrical maximum.',explainEn:'Target: two symmetrical bilateral sources (one in each hemisphere). Alternative: a single deep midline source that does not exist. Symmetrical sources can “merge” into a central maximum.',
+   target:[{az:-90,th:25,depth:45,inc:0,dir:0,amp:40},{az:90,th:25,depth:45,inc:0,dir:0,amp:40}],
+   start:[{az:-90,th:30,depth:30,inc:0,dir:0,amp:40}],
+   alt:[{az:0,th:0,depth:63,inc:0,dir:0,amp:60}],
+   explain:'Objetivo: dos fuentes bilaterales simétricas (una en cada hemisferio). Alternativa: una sola fuente profunda en la línea media que no existe. Las fuentes simétricas pueden “fundirse” en un máximo central.'},
+];
+const P7={c:0,revealed:false,explained:false};
+const ct=(c,k)=>LANG==='en'?c[k+'En']:c[k];
+const tgt7=new Lab({map:'p7tgt',interactive:false,showD:false,autoScale:()=>true,contours:()=>true,elec:()=>true});
+const lab7=new Lab({map:'p7usr',editor:$('p7-editor'),prefix:'p7',interactive:true,hoverEl:$('p7-hover'),autoScale:()=>true,contours:()=>true,elec:()=>true,onChange(){p7score();}});
+function corr(a,b){let ma=0,mb=0;for(let i=0;i<a.length;i++){ma+=a[i];mb+=b[i];}ma/=a.length;mb/=b.length;let s=0,sa=0,sb=0;for(let i=0;i<a.length;i++){const x=a[i]-ma,y=b[i]-mb;s+=x*y;sa+=x*x;sb+=y*y;}return sa&&sb?s/Math.sqrt(sa*sb):0;}
+let T7=null;
+function p7target(){const P=CHAL[P7.c].target.map(d=>prep(mkD(d),.04));T7={map:SAMP.map(e=>potE(e,P)),el:ELEC.map(e=>potE(e.e,P))};T7.max=Math.max(...T7.map.map(Math.abs));}
+function p7score(){
+  if(!T7)return;const P=lab7.dips.filter(d=>d.amp>0).map(d=>prep(d,.04));
+  if(!P.length){$('p7-r').textContent='–';$('p7-bar').style.width='0';$('p7-verdict').textContent=T('Añade al menos un dipolo','Add at least one dipole');$('p7-sub').textContent='';return;}
+  const um=SAMP.map(e=>potE(e,P)),ue=ELEC.map(e=>potE(e.e,P));
+  const r=corr(T7.map,um),re=corr(T7.el,ue),amp=Math.max(...um.map(Math.abs))/T7.max;
+  $('p7-r').textContent=(r<0?'−':'')+fmt(Math.abs(r),2)+` (${fmt(re,2)})`;$('p7-bar').style.width=Math.max(0,r*100)+'%';
+  $('p7-verdict').textContent=r>=.97?T('Prácticamente indistinguibles','Practically indistinguishable'):r>=.9?T('Muy parecidos','Very similar'):r>=.7?T('Parecidos','Similar'):r>=.3?T('Algo parecidos','Somewhat similar'):T('Distintos','Different');
+  $('p7-sub').textContent=T(`Amplitud máxima: ${fmt(amp*100,0)} % de la del objetivo`,`Peak amplitude: ${fmt(amp*100,0)} % of the target’s`);
+}
+function p7load(i){P7.c=i;P7.revealed=false;tgt7.showD=false;tgt7.set(CHAL[i].target);p7target();lab7.set(CHAL[i].start);P7.explained=false;p7texts();
+  document.querySelectorAll('#p7-cards .card').forEach((c,j)=>c.setAttribute('aria-pressed',j===i?'true':'false'));}
+function p7texts(){$('p7-cards').innerHTML=CHAL.map((c,i)=>`<button class="card" data-i="${i}" aria-pressed="${i===P7.c}"><b>${T('Reto','Challenge')} ${i+1}. ${ct(c,'name')}</b><span>${ct(c,'desc')}</span></button>`).join('');
+  $('p7-reveal').textContent=P7.revealed?T('Ocultar la fuente del objetivo','Hide the target source'):T('Revelar la fuente del objetivo','Reveal the target source');
+  $('p7-explain').textContent=P7.explained?ct(CHAL[P7.c],'explain'):'';}
+$('p7-cards').addEventListener('click',e=>{const b=e.target.closest('.card');if(b)p7load(+b.dataset.i);});
+$('p7-alt').addEventListener('click',()=>{const ch=CHAL[P7.c];lab7.set(ch.alt);const P=lab7.dips.map(d=>prep(d,.04));const m=Math.max(...SAMP.map(e=>Math.abs(potE(e,P))));const f=T7.max/m;lab7.dips.forEach(d=>d.amp=Math.max(1,Math.min(120,Math.round(d.amp*f))));lab7.change();P7.explained=true;p7texts();});
+$('p7-reveal').addEventListener('click',()=>{P7.revealed=!P7.revealed;tgt7.showD=P7.revealed;tgt7.cm.dirty=true;if(P7.revealed)P7.explained=true;p7texts();});
+$('p7-reset').addEventListener('click',()=>lab7.set(CHAL[P7.c].start));
+p7load(0);
+DIRTY.lab7=()=>{tgt7.cm.dirty=true;lab7.cm.dirty=true;};
+
+/* =====================================================================
+   Navigation & loop
+   ===================================================================== */
+const PH=[...document.querySelectorAll('.phase')];
+let cur=0,playing=!reduced,simT=0,last=0;
+const TITLES_EN=['What EEG measures','The pyramidal cell as a dipole','Alignment and synchrony','Gyri and sulci','Crossing the skull','Dipole lab','The inverse problem'];
+const ttl=i=>LANG==='en'?TITLES_EN[i]:PH[i].dataset.title;
+function renderStepper(){$('stepper').innerHTML=PH.map((p,i)=>`<li><button data-i="${i}"><span class="n">${i+1}</span>${ttl(i)}</button></li>`).join('');}
+renderStepper();
+function go(i){
+  cur=Math.max(0,Math.min(PH.length-1,i));
+  PH.forEach((p,j)=>p.hidden=j!==cur);
+  document.querySelectorAll('#stepper button').forEach((b,j)=>{b.toggleAttribute('aria-current',false);if(j===cur)b.setAttribute('aria-current','step');b.classList.toggle('done',j<cur);});
+  $('prog').textContent=T(`Fase ${cur+1} de ${PH.length}`,`Phase ${cur+1} of ${PH.length}`)+` · ${ttl(cur)}`;
+  $('prev').disabled=cur===0;$('next').textContent=cur===PH.length-1?T('Volver al inicio ↺','Back to start ↺'):T('Siguiente →','Next →');$('prev').textContent=T('← Anterior','← Previous');
+  CANV.forEach(o=>o.dirty=true);
+  try{history.replaceState(null,'','#fase'+(cur+1));}catch(e){}
+  document.querySelector('#stepper button[aria-current]')?.scrollIntoView({block:'nearest',inline:'center',behavior:reduced?'auto':'smooth'});
+}
+$('stepper').addEventListener('click',e=>{const b=e.target.closest('button');if(b){go(+b.dataset.i);window.scrollTo({top:0,behavior:reduced?'auto':'smooth'});}});
+$('prev').addEventListener('click',()=>{go(cur-1);window.scrollTo({top:0});});
+$('next').addEventListener('click',()=>{go(cur===PH.length-1?0:cur+1);window.scrollTo({top:0});});
+document.addEventListener('keydown',e=>{if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return;if(e.key==='ArrowRight')go(cur+1);if(e.key==='ArrowLeft')go(cur-1);});
+function setPlaying(v){playing=v;$('play').setAttribute('aria-pressed',v);$('play').textContent=v?T('Pausar animación','Pause animation'):T('Reanudar animación','Resume animation');}
+$('play').addEventListener('click',()=>setPlaying(!playing));
+function loop(ts){
+  const dt=last?Math.min(.05,(ts-last)/1000):0;last=ts;if(playing)simT+=dt;const d=playing?dt:0;
+  switch(cur){
+    case 0: p1scheme(simT); if(p1t.dirty){p1t.dirty=false;p1drawTraces();} break;
+    case 1: p2frame(simT,d); break;
+    case 2: p3frame(simT,d); break;
+    case 3: p4draw(); break;
+    case 4: p5draw(); break;
+    case 5: lab6.draw(); drawCbar(); break;
+    case 6: tgt7.draw(); lab7.draw(); break;
+  }
+  requestAnimationFrame(loop);
+}
+
+/* =====================================================================
+   Language (ES / EN)
+   ===================================================================== */
+const HOVERTXT=()=>T('Pasa el cursor por el mapa para leer el voltaje.','Hover over the map to read the voltage.');
+const I18N_SEL='.kicker, h1, .phase .cap, .eyebrow, .panel h2, .lead, .box > h3, .ctl .row > label, .ctl .row > span, .hint span, .seg:not(#lang) button, .btns > .btn, .chk > span, .ro .k, .score .k, .observe h3, .observe li, details summary, details > p, table.rules th, table.rules td, .panel > .note, .box > .note, #p4-presets .preset, .duel h3, footer.cred';
+const I18N_EN=["Cognitive Neuroscience · Block 3 · Electrophysiological techniques", "Where does the <em>EEG</em> signal come from?", "Top: a synapse in slow motion. Bottom: what <span id=\"p1-ncap\">100</span> neurons add up to over 300 ms, with three rhythmic bursts (shaded bands). Both traces use the same fixed vertical scale (1 = the amplitude of a single PSP), so you can see how the amplitude changes.", "Phase 1 · What EEG measures", "Action potentials versus postsynaptic potentials", "Neurons communicate through <b>action potentials</b> (APs) that travel along the axon. At the synapse, the AP releases neurotransmitters that generate <b>postsynaptic potentials</b> (PSPs), excitatory or inhibitory, in the dendrites of the next neuron. EEG picks up the sum of a huge number of events, but not all of them add up equally well.", "Controls", "Send an action potential", "Active neurons", "Synchrony between neurons", "timing spread ~37 ms", "~1.5 ms", "Vertical axis (fixed)", "0–50", "0–150", "0–500", "Peak of summed APs", "Peak of summed PSPs", "PSP / AP", "Notice", "An AP lasts <b>~1 ms</b> and is biphasic; a PSP lasts <b>10–100 ms</b>. Compare both drawings on the same time axis.", "Even when neurons fire “at the same time”, a 2 ms lag is enough for APs to miss each other and cancel out. PSPs overlap and add up.", "Increase the number of neurons: the PSP sum grows in proportion to N; the AP sum grows far less.", "Why doesn’t EEG record action potentials?", "Because they are very brief (~1 ms), local and biphasic, and axons point in many different directions. In addition, the field of an AP falls off with distance faster than that of a dipole. When thousands of neurons are summed, the positive phase of one lands on the negative phase or the silence of another, and they cancel. PSPs are slow and sustained: despite small timing differences they still overlap. That is why EEG mainly reflects <b>synchronised postsynaptic potentials</b>.", "Diagram of a layer V pyramidal neuron. The dots show the current: inside the neuron (along the dendrite) and back through the extracellular space. The trace in the corner is what the electrode would record (here positive is up; many labs plot ERPs with negative up).", "Phase 2 · The pyramidal cell as a dipole", "A sink and a source: how a dipole is born", "When an excitatory neurotransmitter opens channels in the apical dendrite, <b>positive charges flow in</b> (Na⁺). The extracellular space at that point becomes negative: it is a current <b>sink</b> (−). The current travels inside the neuron and leaves mostly near the soma, which acts as a <b>source</b> (+). Two poles of opposite sign separated in space form a <b>dipole</b>.", "Controls", "Synapse type", "Excitatory (EPSP)", "Inhibitory (IPSP)", "Where the synapse arrives", "Apical dendrite (superficial)", "Near the soma (deep)", "Activate the synapse", "Repeat automatically", "Show currents", "Show the equivalent dipole (arrow from − to +)", "Polarity at the surface", "Synapse", "Location", "Surface", "Excitatory", "Apical", "<span class=\"sgn n\">− negative</span>", "Inhibitory", "Apical", "<span class=\"sgn p\">+ positive</span>", "Excitatory", "Near the soma", "<span class=\"sgn p\">+ positive</span>", "Inhibitory", "Near the soma", "<span class=\"sgn n\">− negative</span>", "Notice", "The current always forms a closed loop: it enters at one point, travels inside and returns outside.", "The electrode sees the pole <b>closest to the surface</b>.", "Two opposite situations produce the same polarity: a deep EPSP and a superficial IPSP both give positivity.", "If you record a negative wave at Cz, can you tell whether the neurons were excited or inhibited?", "Not from polarity alone. A surface negativity is consistent with an EPSP on the apical dendrite and with an IPSP near the soma. To interpret it you need to know where the synapses arrive (the anatomy of the pathway) and combine it with other sources of information.", "Each neuron oscillates (an alpha rhythm in slow motion): red when its dipole points towards the surface, blue when it points inwards. On the right, the sum of all the arrows. Below, the signal reaching the electrode (only the vertical component counts).", "Phase 3 · Alignment and synchrony", "Thousands of dipoles that have to agree", "The dipole of a single neuron is tiny. EEG only detects activity when <b>millions of neighbouring pyramidal cells</b>, arranged in parallel and perpendicular to the surface, receive input <b>at the same time</b>. It is estimated that several square centimetres of synchronously active cortex are needed to get a clear signal on the scalp. Their dipoles add up like arrows: if they point the same way and oscillate together, the total arrow grows; if not, they cancel.", "Controls", "Cell type", "Pyramidal (open field)", "Stellate (closed field)", "Number of neurons", "Spread of orientation", "palisade", "random", "Synchrony", "Signal at the electrode", "If they were independent (≈ 1/√N)", "Notice", "With random orientation (±180°) the net arrow almost vanishes, even though every neuron is active.", "Stellate cells have dendrites in all directions: their currents close on themselves and produce no distant signal.", "Without synchrony, the total signal grows only as √N; with synchrony, as N. With millions of neurons, the difference is huge.", "Why does EEG barely record structures such as the thalamus or the basal ganglia?", "Because of their depth, and above all because their neurons are not arranged in parallel layers: they generate closed fields whose currents cancel. The cortex, with its palisade of pyramidal cells, is the main source of the EEG.", "Section of folded cortex. Pyramidal cells (ticks) are perpendicular to the cortical surface. Click on the cortex or use the slider to move the active region. At the top, the voltage along the scalp, with a fixed vertical axis to compare amplitudes (a.u. = arbitrary units of this model).", "Phase 4 · Gyri and sulci", "The orientation of neurons matters", "Pyramidal cells are arranged perpendicular to the cortical surface, but the cortex is folded. On the <b>crown of a gyrus</b> their dipole points towards the scalp (<b>radial</b>). On the <b>wall of a sulcus</b> it points sideways (<b>tangential</b>). At the <b>bottom of the sulcus</b> it is radial again, but further from the electrodes.", "Controls", "Crown of a gyrus", "Wall of a sulcus", "Bottom of a sulcus", "Both walls at once", "Position of the active region", "Extent of the active region", "EEG signal (peak on the scalp)", "Tangential component (what MEG sees)", "Percentages relative to the same active region placed on a gyral crown (EEG) or perfectly tangential (MEG).", "Notice", "<b>Radial</b>: a single maximum right above the source. <b>Tangential</b>: a positive and a negative pole on either side, with zero above the source.", "If both walls of a sulcus are active, their dipoles point in opposite directions and cancel: the dashed arrow (their sum) almost disappears.", "MEG is almost blind to radial sources and sensitive to tangential ones (and it loses sensitivity with depth faster than EEG): that is why EEG and MEG are complementary.", "A tangential dipole gives a positive maximum and a negative minimum. Where is the source?", "Between the two, under the zero-voltage line, not under the maximum. That is why reading a topography as “the activity is where the voltage is highest” can lead to wrong conclusions.", "Top: section of the head with its layers (thickness exaggerated so they can be seen). The colour inside the brain shows the dipole’s field. Small dots: contacts on the cortex (ECoG); gold discs: EEG electrodes. Bottom: voltage on each surface by angle from the source, with a fixed vertical axis (choose the scale in the controls).", "Phase 5 · From cortex to scalp", "Attenuated and blurred, but recognisable", "The electric field passes through cortex → cerebrospinal fluid → bone → scalp. The <b>skull</b> conducts current much worse than the brain (roughly 15 to 80 times worse, depending on the estimate), so the signal arrives <b>attenuated</b> and <b>blurred</b>: the overall dipole pattern is preserved, but it spreads out.", "Controls", "Source depth (from the scalp)", "Orientation", "radial outward", "tangential", "radial inward", "Skull resistance", "no skull", "very resistive", "Vertical axis (fixed)", "±25 µV", "±100 µV", "±300 µV", "Normalise the curves to compare their width", "Peak on the cortex (ECoG)", "Peak on the scalp (EEG)", "Width at half maximum", "Notice", "With the same dipole, the voltage on the scalp is many times smaller than on the cortex.", "Turn on “Normalise”: the EEG curve is wider. An electrode picks up activity from sources that are not directly beneath it.", "Increase skull resistance: more blurring. Increase depth: lower amplitude and greater width.", "Why can iEEG or ECoG capture high gamma (&gt;60 Hz) while EEG barely can?", "High-frequency activity tends to be very local (small patches of cortex). The skull acts as a spatial low-pass filter: fine patterns are blurred and their amplitude on the scalp falls below the noise.", "Top view (nose up, left ear on the left). Red: positive voltage; blue: negative. On the map, each dipole is drawn with an arrow (its tangential part) and a circle (its radial part: ● outward, × inward). Drag a dipole to move it, or click an empty spot to move the selected one there. On the right, a section of the head through the selected dipole.", "Phase 6 · Dipole lab", "Build your own dipoles", "This is the <b>forward problem</b>: if we know the source (position, orientation and amplitude) we can calculate the topography it produces, and the solution is unique. Add dipoles, move them and rotate their orientation to see how the map changes.", "Examples", "Display", "Automatic colour scale", "Fixed colour scale", "Include skull blurring", "Show isolines", "Show 10-20 electrodes", "Notice", "Tilt 0° (radial outward): positive maximum above the source. 180°: negative minimum. 90° (tangential): a positive-negative pair.", "Increase the depth: the map becomes wider and weaker.", "Load “Opposite walls of a sulcus” and remove one of the two dipoles with the × to see how much they were cancelling.", "Model: homogeneous conducting sphere of 9 cm radius, with a filter that mimics skull blurring. Voltages are computed with an ideal reference (at infinity); in a real recording, changing the reference shifts all values and can greatly change how the map looks. The ERP examples are simplifications: the P300, for instance, has distributed generators. Real analyses use multi-layer head models (BEM or FEM), often built from the participant’s MRI.", "Target topography", "Your dipoles", "Shape similarity (r)", "Each map uses its own colour scale, to compare shape. “r” is the correlation between the two maps (1 = identical in shape). In brackets, the same correlation using only the 19 electrodes of the 10-20 system.", "Phase 7 · The inverse problem", "Same maps, different sources", "Now the other way round: you have a topography and want to know what produced it. This is the <b>inverse problem</b>, and it has no unique solution: very different combinations of dipoles can produce almost identical maps. Try to imitate the target by moving your dipoles, then look at the alternative solution.", "Choose a challenge", "Show an alternative solution", "Reveal the target source", "Reset my dipoles", "How it is tackled in practice", "<b>Equivalent dipoles</b>: activity is assumed to come from a few focal sources (useful in epilepsy or some ERPs).", "<b>Distributed models</b>: thousands of sources over the cortex with a constraint. MNE picks the solution with the lowest total energy; LORETA, the smoothest distribution; sLORETA standardises the minimum-norm estimate; beamforming uses spatial filters that isolate each point.", "The choice of constraint decides the answer. That is why it is combined with anatomy (individual MRI) and with other techniques (fMRI, MEG).", "If a 1-dipole solution and a 7-dipole solution explain the map equally well, which do you choose?", "The data alone cannot decide. It depends on what you assume: the equivalent-dipole model prefers a few focal sources; MNE prefers the lowest total energy; LORETA, the smoothest distribution. The topography does not reveal the source directly: it is a clue that must be interpreted with prior knowledge.", "Interactive teaching material · Cognitive Neuroscience, Psychology degree. Use the ← → keys to change phase."];
+const ARIA_EN={p1s:'Animation: an action potential travels along the axon, neurotransmitters are released and a postsynaptic potential appears on the dendrite',p1t:'Sum of action potentials and of postsynaptic potentials from many neurons',p2:'Pyramidal neuron in the cortical layers with intracellular and extracellular currents',p3:'Population of neurons with their net dipole and the resulting signal at the electrode',p4:'Section of folded cortex with gyri and sulci, the active region and the potential on the scalp',p5:'Section of the head with its layers and a comparison of voltage on the cortex and on the scalp',p6map:'EEG topography seen from above, nose up',p6side:'Section of the head through the selected dipole',p7tgt:'Target topography',p7usr:'Topography produced by your dipoles'};
+let I18N_NODES=null,I18N_ES=null,ARIA_ES={};
+function applyLang(lang){
+  if(!I18N_NODES){I18N_NODES=[...document.querySelectorAll(I18N_SEL)].filter(e=>!e.closest('#p6-editor,#p7-editor')&&e.id!=='p7-explain');I18N_ES=I18N_NODES.map(e=>e.innerHTML.trim());
+    for(const id in ARIA_EN)ARIA_ES[id]=$(id).getAttribute('aria-label');
+    if(I18N_NODES.length!==I18N_EN.length)console.warn('i18n: node count',I18N_NODES.length,'vs',I18N_EN.length);}
+  LANG=lang==='en'?'en':'es';
+  try{localStorage.setItem('eeg-lang',LANG);}catch(e){}
+  document.documentElement.lang=LANG;document.title=T('Del dipolo al EEG','From Dipole to EEG');
+  I18N_NODES.forEach((e,i)=>{e.innerHTML=LANG==='en'?(I18N_EN[i]??I18N_ES[i]):I18N_ES[i];});
+  for(const id in ARIA_EN)$(id).setAttribute('aria-label',LANG==='en'?ARIA_EN[id]:ARIA_ES[id]);
+  $('lang').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===LANG?'true':'false'));
+  $('stepper').parentElement.setAttribute('aria-label',T('Fases','Phases'));
+  $('p1-ncap').textContent=P1.n;$('p1-sync-v').textContent=P1.sync+' %';
+  p1compute();p3read();p4update();p5compute();
+  $('p6-hover').textContent=HOVERTXT();$('p7-hover').textContent='';
+  renderPresets();lab6.relang();lab7.relang();tgt7.change();p7texts();p7score();
+  renderStepper();go(cur);setPlaying(playing);
+  CANV.forEach(o=>o.dirty=true);Object.values(DIRTY).forEach(f=>f());
+}
+$('lang').addEventListener('click',e=>{const b=e.target.closest('button');if(b&&b.dataset.v!==LANG)applyLang(b.dataset.v);});
+
+readColors();p1compute();p4calib();p4update();p5compute();setPlaying(playing);
+const h0=/^#fase(\d)$/.exec(location.hash);go(h0?(+h0[1]-1):0);
+let savedLang=null;try{savedLang=localStorage.getItem('eeg-lang');}catch(e){}
+if(!savedLang&&!/^es/i.test(navigator.language||'es'))savedLang='en';
+if(savedLang==='en')applyLang('en');
+requestAnimationFrame(loop);
+</script>
+
+</body>
+</html>
